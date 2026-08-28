@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { uploadDocument } from '../lib/documents';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 function formatSize(bytes) {
   if (!bytes) return '—';
@@ -10,6 +11,7 @@ function formatSize(bytes) {
 }
 
 export default function DocumentList() {
+  const { isAdmin } = useAuth();
   const [docs, setDocs] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
@@ -46,12 +48,14 @@ export default function DocumentList() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
-        <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
-          {uploading ? '上传中…' : '上传文档'}
-          <input type="file" style={{ display: 'none' }} onChange={handleUpload} disabled={uploading} />
-        </label>
-      </div>
+      {isAdmin && (
+        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+          <label className="btn btn-primary" style={{ cursor: 'pointer' }}>
+            {uploading ? '上传中…' : '上传文档'}
+            <input type="file" style={{ display: 'none' }} onChange={handleUpload} disabled={uploading} />
+          </label>
+        </div>
+      )}
 
       {error && <div className="error-text" style={{ marginBottom: 12 }}>{error}</div>}
 

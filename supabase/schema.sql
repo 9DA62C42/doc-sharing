@@ -161,8 +161,12 @@ create policy "group_members_write_admin" on public.group_members
 -- documents：只能看到自己有权限的文档（通过函数判断），管理员/owner 可写
 create policy "documents_select_accessible" on public.documents
   for select using (public.has_document_access(id, auth.uid(), 'view'));
-create policy "documents_insert_own" on public.documents
-  for insert with check (owner_id = auth.uid());
+-- 只有管理员能上传新文档（owner_id 仍记录成上传者本人，方便追溯）
+create policy "documents_insert_admin_only" on public.documents
+  for insert with check (
+    owner_id = auth.uid()
+    and exists (select 1 from profiles where id = auth.uid() and is_admin)
+  );
 create policy "documents_update_owner_or_admin" on public.documents
   for update using (
     owner_id = auth.uid()
@@ -225,8 +229,11 @@ create policy "storage_select_if_document_accessible" on storage.objects
     )
   );
 
-create policy "storage_insert_own" on storage.objects
-  for insert with check (bucket_id = 'documents' and auth.uid() is not null);
+create policy "storage_insert_admin_only" on storage.objects
+  for insert with check (
+    bucket_id = 'documents'
+    and exists (select 1 from profiles where id = auth.uid() and is_admin)
+  );
 
 create policy "storage_delete_owner_or_admin" on storage.objects
   for delete using (

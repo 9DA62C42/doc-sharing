@@ -1,7 +1,25 @@
-/* WIRE 预设：黑灰阶承载全部结构，唯一强调色 --hero 只给一个元素用 */
-:root {
+/* WIRE 预设：黑灰阶承载全部结构，唯一强调色 --hero 只给一个元素用。
+   暗色是默认——按仓库里的原则，暗底上明度反转：最重要的元素变最亮，而不是最黑。 */
+
+:root,
+[data-theme="dark"] {
+  --bg: #1C1C1A;
+  --surface: #262622;
+  --surface-2: #302F2A;
+  --text: #F0F0EE;
+  --muted: rgba(240, 240, 238, 0.6);
+  --faint: rgba(240, 240, 238, 0.32);
+  --border: rgba(240, 240, 238, 0.14);
+  --border-strong: rgba(240, 240, 238, 0.28);
+  --hero: #F5572F;
+  --hero-tint: rgba(245, 87, 47, 0.16);
+  --hero-dark: #FF8A63;
+}
+
+[data-theme="light"] {
   --bg: #F0F0EE;
   --surface: #FFFFFF;
+  --surface-2: #F7F7F5;
   --text: #1F1E1C;
   --muted: rgba(31, 30, 28, 0.6);
   --faint: rgba(31, 30, 28, 0.32);
@@ -10,6 +28,9 @@
   --hero: #F5572F;
   --hero-tint: rgba(245, 87, 47, 0.1);
   --hero-dark: #A83B1E;
+}
+
+:root {
   --radius: 10px;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
   --font-serif: Georgia, "Noto Serif SC", serif;
@@ -22,6 +43,7 @@ body {
   color: var(--text);
   font-family: var(--font-sans);
   line-height: 1.6;
+  transition: background 0.15s, color 0.15s;
 }
 a { color: var(--hero-dark); }
 
@@ -36,9 +58,16 @@ a { color: var(--hero-dark); }
   display: flex; align-items: baseline; gap: 10px;
 }
 .masthead .flag { width: 8px; height: 20px; background: var(--hero); display: inline-block; }
-.nav-links { display: flex; gap: 16px; font-size: 13px; }
+.nav-links { display: flex; align-items: center; gap: 16px; font-size: 13px; }
 .nav-links a { color: var(--muted); text-decoration: none; }
 .nav-links a.active { color: var(--text); font-weight: 600; border-bottom: 2px solid var(--hero); }
+
+.theme-toggle {
+  border: 1px solid var(--border-strong); background: transparent; color: var(--text);
+  border-radius: 999px; width: 28px; height: 28px; cursor: pointer; font-size: 13px;
+  display: flex; align-items: center; justify-content: center;
+}
+.theme-toggle:hover { border-color: var(--hero); }
 
 .btn {
   font-family: var(--font-sans); font-size: 13px; font-weight: 500;
@@ -56,6 +85,7 @@ input[type="text"], input[type="email"], input[type="password"], input[type="fil
   border: 1px solid var(--border-strong); border-radius: var(--radius);
   background: var(--surface); color: var(--text); width: 100%;
 }
+select option { background: var(--surface); color: var(--text); }
 label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
 
 .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
@@ -65,7 +95,7 @@ label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px
   align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px;
 }
 .doc-row:last-child { border-bottom: none; }
-.doc-row .name { font-weight: 500; }
+.doc-row .name { font-weight: 500; color: var(--text); text-decoration: none; }
 .doc-row .meta { font-size: 12px; color: var(--muted); }
 
 .pill {
@@ -82,3 +112,11 @@ label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px
 
 .empty { padding: 24px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; font-size: 13px; }
 .error-text { color: var(--hero-dark); font-size: 13px; margin-top: 6px; }
+
+.stat-card {
+  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
+  padding: 16px; text-align: left;
+}
+.stat-card .n { font-family: var(--font-serif); font-size: 30px; font-weight: 600; color: var(--text); }
+.stat-card .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }

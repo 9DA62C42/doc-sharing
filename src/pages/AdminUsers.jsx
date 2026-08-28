@@ -71,7 +71,11 @@ export default function AdminUsers() {
     e.preventDefault();
     setInviteStatus('发送中…');
     const { error } = await supabase.functions.invoke('invite-user', {
-      body: { email: inviteEmail, displayName: inviteName },
+      body: {
+        email: inviteEmail,
+        displayName: inviteName,
+        redirectTo: `${window.location.origin}/set-password`,
+      },
     });
     if (error) { setInviteStatus(`失败：${error.message}`); return; }
     setInviteStatus(`已向 ${inviteEmail} 发送邀请邮件`);

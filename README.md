@@ -5,6 +5,15 @@ Netlify(前端托管) + Supabase(数据库/认证/存储) 搭建的内部文档�
 
 ---
 
+## 如果你是已经部署过一次的老项目，这次要多做几步
+
+1. **数据库**：在 SQL Editor 里跑一次 `supabase/migrations/001_admin_only_upload.sql`（把上传权限收紧为仅管理员，不用重跑整个 schema.sql）。
+2. **Auth URL 配置**：见第 8 节第 5 步，配好 Site URL 和 Redirect URLs，邀请链接才能正常跳转到设置密码页。
+3. **Edge Function**：`invite-user` 这次改了代码（加了 CORS），需要重新 `supabase functions deploy invite-user` 才会生效，光改前端没用。
+4. **前端**：重新构建、重新拖一次部署（或者重连 Git 走自动部署），新增了"设置密码"/"修改密码"页面和暗色模式。
+
+---
+
 ## 0. 先搞懂这两个东西是干什么的
 
 **Supabase** 可以理解成"一整套后端能力,你不用自己写服务器"：
@@ -82,6 +91,9 @@ npm run dev
    ```
 3. Edge Function 需要 `SUPABASE_SERVICE_ROLE_KEY` 这个环境变量，Supabase 项目里默认已经自动注入，不用你手动配置。
 4. 部署成功后，回到网站的"按用户设置权限"页面，顶部就有"邀请新成员"的表单了，填邮箱发出去，对方会收到 Supabase 发的邀请邮件，点进去设置密码即可登录。
+5. **邀请邮件的跳转链接需要额外配置一步**，否则点进邮件会打不开或跳到错误的地方：Supabase 后台 **Authentication → URL Configuration**，把 **Site URL** 设成你 Netlify 网址（比如 `https://xxxx.netlify.app`），**Redirect URLs** 里加一条 `https://xxxx.netlify.app/set-password`。这一步不做，`/set-password` 那个"设置密码"页面收不到邀请链接带的登录信息。
+
+如果暂时不想折腾 Edge Function / CLI，也可以先用最简单的方式邀请人：Supabase 后台 **Authentication → Users → Invite user**，直接填邮箱，效果是一样的（同样要先做好上面第 5 步的 URL 配置，邀请链接才能正常跳转）。
 
 ## 8. 部署到 Netlify
 
