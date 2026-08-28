@@ -1,0 +1,11 @@
+[build]
+  command = "npm run build"
+  publish = "dist"
+
+# React Router 用的是浏览器 history 路由，
+# 直接刷新 /admin/users 这种子路径时 Netlify 默认会 404，
+# 这条规则让所有路径都回退到 index.html，交给前端路由处理。
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
