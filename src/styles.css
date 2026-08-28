@@ -1,0 +1,84 @@
+/* WIRE 预设：黑灰阶承载全部结构，唯一强调色 --hero 只给一个元素用 */
+:root {
+  --bg: #F0F0EE;
+  --surface: #FFFFFF;
+  --text: #1F1E1C;
+  --muted: rgba(31, 30, 28, 0.6);
+  --faint: rgba(31, 30, 28, 0.32);
+  --border: rgba(31, 30, 28, 0.16);
+  --border-strong: rgba(31, 30, 28, 0.32);
+  --hero: #F5572F;
+  --hero-tint: rgba(245, 87, 47, 0.1);
+  --hero-dark: #A83B1E;
+  --radius: 10px;
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-serif: Georgia, "Noto Serif SC", serif;
+}
+
+* { box-sizing: border-box; }
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--font-sans);
+  line-height: 1.6;
+}
+a { color: var(--hero-dark); }
+
+.app-shell { max-width: 1040px; margin: 0 auto; padding: 28px 20px 80px; }
+
+.masthead {
+  display: flex; align-items: baseline; justify-content: space-between;
+  border-bottom: 2px solid var(--hero); padding-bottom: 12px; margin-bottom: 24px;
+}
+.masthead h1 {
+  font-family: var(--font-serif); font-style: italic; font-size: 26px; margin: 0;
+  display: flex; align-items: baseline; gap: 10px;
+}
+.masthead .flag { width: 8px; height: 20px; background: var(--hero); display: inline-block; }
+.nav-links { display: flex; gap: 16px; font-size: 13px; }
+.nav-links a { color: var(--muted); text-decoration: none; }
+.nav-links a.active { color: var(--text); font-weight: 600; border-bottom: 2px solid var(--hero); }
+
+.btn {
+  font-family: var(--font-sans); font-size: 13px; font-weight: 500;
+  border: 1px solid var(--border-strong); background: var(--surface); color: var(--text);
+  padding: 8px 14px; border-radius: var(--radius); cursor: pointer;
+}
+.btn:hover { border-color: var(--hero); }
+.btn-primary { background: var(--hero); border-color: var(--hero); color: #fff; }
+.btn-primary:hover { background: var(--hero-dark); }
+.btn-ghost { background: transparent; border-color: transparent; }
+.btn-danger { color: var(--hero-dark); }
+
+input[type="text"], input[type="email"], input[type="password"], input[type="file"], select {
+  font-family: var(--font-sans); font-size: 14px; padding: 8px 10px;
+  border: 1px solid var(--border-strong); border-radius: var(--radius);
+  background: var(--surface); color: var(--text); width: 100%;
+}
+label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px; }
+
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+
+.doc-row {
+  display: grid; grid-template-columns: 1fr 100px 110px 80px;
+  align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--border); font-size: 14px;
+}
+.doc-row:last-child { border-bottom: none; }
+.doc-row .name { font-weight: 500; }
+.doc-row .meta { font-size: 12px; color: var(--muted); }
+
+.pill {
+  display: inline-block; font-size: 12px; padding: 2px 10px; border-radius: 999px;
+  background: var(--faint); color: var(--muted);
+}
+.pill-deny { background: var(--hero-tint); color: var(--hero-dark); }
+
+.two-col { display: grid; grid-template-columns: 200px 1fr; gap: 16px; }
+.list-item {
+  padding: 10px 12px; font-size: 13px; cursor: pointer; border-left: 2px solid transparent;
+}
+.list-item.active { border-left-color: var(--hero); background: var(--hero-tint); font-weight: 500; }
+
+.empty { padding: 24px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; font-size: 13px; }
+.error-text { color: var(--hero-dark); font-size: 13px; margin-top: 6px; }
