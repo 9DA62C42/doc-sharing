@@ -9,6 +9,7 @@ export function AuthProvider({ children }) {
   const [profile, setProfile] = useState(null);
   const [hasAgreedTerms, setHasAgreedTerms] = useState(false);
   const [agreementChecked, setAgreementChecked] = useState(false);
+  const [hasKbAccess, setHasKbAccess] = useState(false);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setSession(data.session ?? null));
@@ -37,6 +38,12 @@ export function AuthProvider({ children }) {
 
   useEffect(() => { refreshAgreement(); }, [refreshAgreement]);
 
+  useEffect(() => {
+    if (!session) { setHasKbAccess(false); return; }
+    supabase.rpc('has_kb_access', { p_user_id: session.user.id })
+      .then(({ data }) => setHasKbAccess(!!data));
+  }, [session]);
+
   const value = {
     session,
     user: session?.user ?? null,
@@ -47,6 +54,7 @@ export function AuthProvider({ children }) {
     hasAgreedTerms,
     agreementChecked,
     refreshAgreement,
+    hasKbAccess,
     signOut: () => supabase.auth.signOut(),
   };
 

@@ -8,6 +8,8 @@ import Terms from './pages/Terms.jsx';
 import AccountBlocked from './pages/AccountBlocked.jsx';
 import DocumentList from './pages/DocumentList.jsx';
 import DocumentDetail from './pages/DocumentDetail.jsx';
+import KnowledgeBase from './pages/KnowledgeBase.jsx';
+import AdminKnowledgeBase from './pages/AdminKnowledgeBase.jsx';
 import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AdminDocuments from './pages/AdminDocuments.jsx';
@@ -29,6 +31,20 @@ function RequireAdmin({ children }) {
   return children;
 }
 
+function RequireOwner({ children }) {
+  const { isOwner, loading } = useAuth();
+  if (loading) return null;
+  if (!isOwner) return <Navigate to="/" replace />;
+  return children;
+}
+
+function RequireKbAccess({ children }) {
+  const { hasKbAccess, loading } = useAuth();
+  if (loading) return null;
+  if (!hasKbAccess) return <Navigate to="/" replace />;
+  return children;
+}
+
 // 账号状态非 active（暂停/销号）一律拦到 AccountBlocked；没同意最新条款的先去 /terms。
 function RequireGoodStanding({ children }) {
   const { profile, hasAgreedTerms, agreementChecked, loading } = useAuth();
@@ -39,7 +55,7 @@ function RequireGoodStanding({ children }) {
 }
 
 export default function App() {
-  const { session, isAdmin, profile, signOut } = useAuth();
+  const { session, isAdmin, isOwner, hasKbAccess, profile, signOut } = useAuth();
   const { theme, toggle } = useTheme();
 
   return (
@@ -50,6 +66,9 @@ export default function App() {
         {session && (
           <nav className="sidebar-nav">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>文档</NavLink>
+            {hasKbAccess && (
+              <NavLink to="/knowledge-base" className={({ isActive }) => (isActive ? 'active' : '')}>知识库</NavLink>
+            )}
             {isAdmin && (
               <>
                 <NavLink to="/admin" end className={({ isActive }) => (isActive ? 'active' : '')}>概览</NavLink>
@@ -59,6 +78,9 @@ export default function App() {
                 <NavLink to="/admin/accounts" className={({ isActive }) => (isActive ? 'active' : '')}>账号管理</NavLink>
                 <NavLink to="/admin/logs" className={({ isActive }) => (isActive ? 'active' : '')}>日志</NavLink>
               </>
+            )}
+            {isOwner && (
+              <NavLink to="/admin/knowledge-base" className={({ isActive }) => (isActive ? 'active' : '')}>知识库权限</NavLink>
             )}
             <NavLink to="/change-password" className={({ isActive }) => (isActive ? 'active' : '')}>修改密码</NavLink>
           </nav>
@@ -83,6 +105,7 @@ export default function App() {
           <Route path="/set-password" element={<SetPassword />} />
           <Route path="/terms" element={<RequireAuth><Terms /></RequireAuth>} />
           <Route path="/" element={<RequireAuth><RequireGoodStanding><DocumentList /></RequireGoodStanding></RequireAuth>} />
+          <Route path="/knowledge-base" element={<RequireAuth><RequireGoodStanding><RequireKbAccess><KnowledgeBase /></RequireKbAccess></RequireGoodStanding></RequireAuth>} />
           <Route path="/documents/:id" element={<RequireAuth><RequireGoodStanding><DocumentDetail /></RequireGoodStanding></RequireAuth>} />
           <Route path="/change-password" element={<RequireAuth><RequireGoodStanding><ChangePassword /></RequireGoodStanding></RequireAuth>} />
           <Route path="/admin" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminDashboard /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
@@ -91,6 +114,7 @@ export default function App() {
           <Route path="/admin/folders" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminFolders /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
           <Route path="/admin/accounts" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminAccounts /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
           <Route path="/admin/logs" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminLogs /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
+          <Route path="/admin/knowledge-base" element={<RequireAuth><RequireGoodStanding><RequireOwner><AdminKnowledgeBase /></RequireOwner></RequireGoodStanding></RequireAuth>} />
         </Routes>
       </main>
     </div>

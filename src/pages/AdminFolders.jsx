@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { useAuth } from '../lib/AuthContext.jsx';
+import Collapsible from '../components/Collapsible.jsx';
 
 export default function AdminFolders() {
   const { user: currentUser, isOwner } = useAuth();
@@ -12,6 +13,9 @@ export default function AdminFolders() {
   const [userOverrides, setUserOverrides] = useState({});
   const [newFolderName, setNewFolderName] = useState('');
   const [createError, setCreateError] = useState('');
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     (async () => {
@@ -54,6 +58,17 @@ export default function AdminFolders() {
     setFolders((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
     setNewFolderName('');
     setSelectedFolderId(data.id);
+  }
+
+  async function handleDeleteFolder() {
+    setDeleting(true);
+    setDeleteError('');
+    const { error } = await supabase.from('folders').delete().eq('id', selectedFolderId);
+    setDeleting(false);
+    if (error) { setDeleteError(error.message); return; }
+    setFolders((prev) => prev.filter((f) => f.id !== selectedFolderId));
+    setSelectedFolderId(null);
+    setConfirmingDelete(false);
   }
 
   async function setGroupLevel(groupId, level) {
@@ -105,10 +120,26 @@ export default function AdminFolders() {
       {selectedFolder && (
         <div className="card">
           <div className="panel-section" style={{ marginTop: 0, paddingTop: 0 }}>
-            <h3 style={{ margin: 0 }}>{selectedFolder.name}</h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <h3 style={{ margin: 0 }}>{selectedFolder.name}</h3>
+              {canManage && (
+                confirmingDelete ? (
+                  <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                    <span style={{ fontSize: 12, color: 'var(--muted)' }}>确认删除？不可恢复</span>
+                    <button className="btn btn-danger" disabled={deleting} onClick={handleDeleteFolder}>
+                      {deleting ? '删除中…' : '确认删除'}
+                    </button>
+                    <button className="btn" disabled={deleting} onClick={() => setConfirmingDelete(false)}>取消</button>
+                  </div>
+                ) : (
+                  <button className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>删除文件夹</button>
+                )
+              )}
+            </div>
             <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
               创建人：{users.find((u) => u.id === selectedFolder.owner_id)?.display_name || '未知用户'}
             </div>
+            {deleteError && <div className="error-text" style={{ marginTop: 8 }}>{deleteError}</div>}
           </div>
 
           <div className="panel-section">
@@ -134,18 +165,19 @@ export default function AdminFolders() {
           </div>
 
           <div className="panel-section">
-            <div className="section-label">默认个人覆盖</div>
-            {users.map((u) => (
-              <div key={u.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
-                <span className="name">{u.display_name}</span>
-                <select disabled={!canManage} value={userOverrides[u.id] || 'none'} onChange={(e) => setUserOverride(u.id, e.target.value)}>
-                  <option value="none">无覆盖（跟随分组）</option>
-                  <option value="view">仅查看</option>
-                  <option value="download">可下载</option>
-                  <option value="deny">禁止查看</option>
-                </select>
-              </div>
-            ))}
+            <Collapsible title="默认个人覆盖">
+              {users.map((u) => (
+                <div key={u.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
+                  <span className="name">{u.display_name}</span>
+                  <select disabled={!canManage} value={userOverrides[u.id] || 'none'} onChange={(e) => setUserOverride(u.id, e.target.value)}>
+                    <option value="none">无覆盖（跟随分组）</option>
+                    <option value="view">仅查看</option>
+                    <option value="download">可下载</option>
+                    <option value="deny">禁止查看</option>
+                  </select>
+                </div>
+              ))}
+            </Collapsible>
           </div>
         </div>
       )}

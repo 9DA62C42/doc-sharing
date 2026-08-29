@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase, functionErrorMessage } from '../supabaseClient';
 import { logAction } from '../lib/documents';
 import { useAuth } from '../lib/AuthContext.jsx';
+import Collapsible from '../components/Collapsible.jsx';
 
 export default function AdminUsers() {
   const { user: currentUser, isOwner } = useAuth();
@@ -92,6 +93,11 @@ export default function AdminUsers() {
     if (!error) { setGroups((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name))); setNewGroupName(''); }
   }
 
+  async function handleDeleteGroup(group) {
+    await supabase.from('groups').delete().eq('id', group.id);
+    setGroups((prev) => prev.filter((g) => g.id !== group.id));
+  }
+
   const selectedUser = users.find((u) => u.id === selectedUserId);
 
   return (
@@ -110,8 +116,18 @@ export default function AdminUsers() {
           <div className="section-label">新建分组</div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input type="text" placeholder="分组名称" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} required />
-            <button className="btn" type="submit">创建</button>
+            <button className="btn" type="submit" style={{ flexShrink: 0 }}>创建</button>
           </div>
+          {groups.length > 0 && (
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginTop: 10 }}>
+              {groups.map((g) => (
+                <span key={g.id} className="pill" style={{ display: 'inline-flex', alignItems: 'center', gap: 4 }}>
+                  {g.name}
+                  <span onClick={() => handleDeleteGroup(g)} title="删除这个分组" style={{ cursor: 'pointer', opacity: 0.6 }}>×</span>
+                </span>
+              ))}
+            </div>
+          )}
         </form>
       </div>
 
@@ -148,29 +164,28 @@ export default function AdminUsers() {
             ))}
           </div>
 
-          <div className="section-label">
-            个人覆盖（在分组权限基础上，针对单份文档单独调整；deny 优先级最高。只显示你上传的文档，其他人上传的文档看不到也改不了）
-          </div>
-          {overrideError && <div className="error-text" style={{ marginBottom: 8 }}>{overrideError}</div>}
-          <div className="card" style={{ padding: 0 }}>
-            {docs.filter((doc) => doc.owner_id === currentUser?.id || isOwner).map((doc) => (
-              <div key={doc.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
-                <span className="name">{doc.title}</span>
-                <select
-                  value={overrides[doc.id] || 'none'}
-                  onChange={(e) => setOverride(doc.id, e.target.value)}
-                >
-                  <option value="none">无覆盖（跟随分组）</option>
-                  <option value="view">仅查看</option>
-                  <option value="download">可下载</option>
-                  <option value="deny">禁止查看</option>
-                </select>
-              </div>
-            ))}
-            {docs.filter((doc) => doc.owner_id === currentUser?.id || isOwner).length === 0 && (
-              <div style={{ padding: 12, fontSize: 13, color: 'var(--muted)' }}>你还没有上传任何文档。</div>
-            )}
-          </div>
+          <Collapsible title="个人覆盖（在分组权限基础上，针对单份文档单独调整；只显示你上传的文档）">
+            {overrideError && <div className="error-text" style={{ marginBottom: 8 }}>{overrideError}</div>}
+            <div className="card" style={{ padding: 0 }}>
+              {docs.filter((doc) => doc.owner_id === currentUser?.id || isOwner).map((doc) => (
+                <div key={doc.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
+                  <span className="name">{doc.title}</span>
+                  <select
+                    value={overrides[doc.id] || 'none'}
+                    onChange={(e) => setOverride(doc.id, e.target.value)}
+                  >
+                    <option value="none">无覆盖（跟随分组）</option>
+                    <option value="view">仅查看</option>
+                    <option value="download">可下载</option>
+                    <option value="deny">禁止查看</option>
+                  </select>
+                </div>
+              ))}
+              {docs.filter((doc) => doc.owner_id === currentUser?.id || isOwner).length === 0 && (
+                <div style={{ padding: 12, fontSize: 13, color: 'var(--muted)' }}>你还没有上传任何文档。</div>
+              )}
+            </div>
+          </Collapsible>
         </div>
       )}
       </div>

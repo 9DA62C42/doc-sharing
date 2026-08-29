@@ -51,8 +51,8 @@ Deno.serve(async (req) => {
 
     const adminClient = createClient(supabaseUrl, serviceRoleKey);
     const { data: callerProfile } = await adminClient
-      .from('profiles').select('is_admin').eq('id', callerId).single();
-    if (!callerProfile?.is_admin) return jsonResponse({ error: '只有管理员能操作账号状态' }, 403);
+      .from('profiles').select('is_owner').eq('id', callerId).single();
+    if (!callerProfile?.is_owner) return jsonResponse({ error: '只有站长能操作账号状态' }, 403);
 
     const { userId, action, reason } = await req.json();
     if (!userId || !action) return jsonResponse({ error: '缺少 userId 或 action' }, 400);

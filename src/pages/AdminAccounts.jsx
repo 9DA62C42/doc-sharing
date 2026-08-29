@@ -163,7 +163,7 @@ export default function AdminAccounts() {
             className={`list-item ${u.id === selectedUserId ? 'active' : ''}`}
             onClick={() => { setSelectedUserId(u.id); cancelAction(); setError(''); setNameError(''); setRoleError(''); }}
           >
-            {u.account_status === 'active' && u.id !== currentUser?.id && (
+            {isOwner && u.account_status === 'active' && u.id !== currentUser?.id && (
               <input
                 type="checkbox"
                 checked={selectedIds.has(u.id)}
@@ -177,7 +177,7 @@ export default function AdminAccounts() {
             <StatusPill status={u.account_status} />
           </div>
         ))}
-        {selectedIds.size > 0 && (
+        {isOwner && selectedIds.size > 0 && (
           <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
             {bulkPending ? (
               <ReasonBox
@@ -228,23 +228,25 @@ export default function AdminAccounts() {
             </div>
           )}
 
-          {selectedUser.id === currentUser?.id ? (
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="section-label">
+              当前状态
+            </div>
+            <div style={{ fontSize: 14, marginBottom: 8 }}>{STATUS_LABEL[selectedUser.account_status]}</div>
+            {selectedUser.status_changed_at && (
+              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                上次变更：{formatDateTime(selectedUser.status_changed_at)}
+                {selectedUser.status_reason && <> · 理由：{selectedUser.status_reason}</>}
+              </div>
+            )}
+          </div>
+
+          {!isOwner ? (
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>只有站长能暂停、恢复或销号账号。</div>
+          ) : selectedUser.id === currentUser?.id ? (
             <div style={{ fontSize: 12, color: 'var(--muted)' }}>无法对自己的账号执行状态操作。</div>
           ) : (
             <>
-              <div className="card" style={{ marginBottom: 20 }}>
-                <div className="section-label">
-                  当前状态
-                </div>
-                <div style={{ fontSize: 14, marginBottom: 8 }}>{STATUS_LABEL[selectedUser.account_status]}</div>
-                {selectedUser.status_changed_at && (
-                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                    上次变更：{formatDateTime(selectedUser.status_changed_at)}
-                    {selectedUser.status_reason && <> · 理由：{selectedUser.status_reason}</>}
-                  </div>
-                )}
-              </div>
-
               <div className="card">
                 {selectedUser.account_status === 'active' && (
                   pendingAction === 'suspend' ? (

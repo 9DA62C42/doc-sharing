@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, Link } from 'react-router-dom';
 import { supabase } from '../supabaseClient';
 import { getSignedUrl, logAction, listVersions } from '../lib/documents';
+import Collapsible from '../components/Collapsible.jsx';
 
 const PREVIEWABLE = ['pdf', 'png', 'jpg', 'jpeg', 'gif', 'webp'];
 
@@ -61,60 +62,67 @@ export default function DocumentDetail() {
   return (
     <div>
       <Link to="/" style={{ fontSize: 13 }}>← 返回文档列表</Link>
-      <div className="card" style={{ marginTop: 12 }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <div>
+      <div className="two-col" style={{ gridTemplateColumns: '1fr 300px', marginTop: 12 }}>
+        <div className="card">
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
             <h2 style={{ margin: 0 }}>
               {doc.title}
               {doc.current_version > 1 && <span className="pill" style={{ marginLeft: 8 }}>v{doc.current_version}</span>}
             </h2>
-            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
-              上传人：{doc.profiles?.display_name || '未知用户'}
-            </div>
+            {canDownload ? (
+              <button className="btn btn-primary" onClick={handleDownload}>下载</button>
+            ) : (
+              <span className="pill">仅可查看，无下载权限</span>
+            )}
           </div>
-          {canDownload ? (
-            <button className="btn btn-primary" onClick={handleDownload}>下载</button>
+
+          {previewUrl ? (
+            doc.file_type === 'pdf' ? (
+              <iframe src={previewUrl} title={doc.title} style={{ width: '100%', height: 600, border: 'none', marginTop: 16 }} />
+            ) : (
+              <img src={previewUrl} alt={doc.title} style={{ maxWidth: '100%', marginTop: 16 }} />
+            )
           ) : (
-            <span className="pill">仅可查看，无下载权限</span>
+            <div className="empty" style={{ marginTop: 16 }}>
+              该格式暂不支持在线预览（{doc.file_type}），请下载后查看。
+            </div>
           )}
         </div>
 
-        {doc.special_conditions && (
-          <div style={{ marginTop: 16, padding: 14, borderRadius: 'var(--radius)', background: 'var(--hero-tint)' }}>
-            <div style={{ fontSize: 13, color: 'var(--hero-dark)', marginBottom: 6, fontWeight: 500 }}>
-              特殊分享条件
-            </div>
-            <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{doc.special_conditions}</div>
-          </div>
-        )}
+        <div>
+          <div className="card" style={{ marginBottom: 16 }}>
+            <div className="section-label">上传人</div>
+            <div style={{ fontSize: 14 }}>{doc.profiles?.display_name || '未知用户'}</div>
 
-        {previewUrl ? (
-          doc.file_type === 'pdf' ? (
-            <iframe src={previewUrl} title={doc.title} style={{ width: '100%', height: 600, border: 'none', marginTop: 16 }} />
-          ) : (
-            <img src={previewUrl} alt={doc.title} style={{ maxWidth: '100%', marginTop: 16 }} />
-          )
-        ) : (
-          <div className="empty" style={{ marginTop: 16 }}>
-            该格式暂不支持在线预览（{doc.file_type}），请下载后查看。
-          </div>
-        )}
-
-        {versions.length > 0 && (
-          <div className="panel-section">
-            <div className="section-label">历史版本（{versions.length}）</div>
-            {versions.map((v) => (
-              <div key={v.id} className="doc-row" style={{ gridTemplateColumns: '80px 100px 1fr 100px' }}>
-                <span className="name">v{v.version_number}</span>
-                <span className="meta">{formatSize(v.size_bytes)}</span>
-                <span className="meta">{new Date(v.created_at).toLocaleString()}</span>
-                {canDownload ? (
-                  <a href="#" onClick={(e) => { e.preventDefault(); handleDownloadVersion(v); }} style={{ fontSize: 12 }}>下载此版本</a>
-                ) : <span></span>}
+            {doc.special_conditions && (
+              <div style={{ marginTop: 16, padding: 14, borderRadius: 'var(--radius)', background: 'var(--hero-tint)' }}>
+                <div style={{ fontSize: 13, color: 'var(--hero-dark)', marginBottom: 6, fontWeight: 500 }}>
+                  特殊分享条件
+                </div>
+                <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{doc.special_conditions}</div>
               </div>
-            ))}
+            )}
           </div>
-        )}
+
+          {versions.length > 0 && (
+            <div className="card">
+              <Collapsible title={`历史版本（${versions.length}）`}>
+                {versions.map((v) => (
+                  <div key={v.id} style={{ padding: '8px 0', borderBottom: '1px solid var(--border)', fontSize: 13 }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                      <span style={{ fontWeight: 500 }}>v{v.version_number}</span>
+                      <span className="meta">{formatSize(v.size_bytes)}</span>
+                    </div>
+                    <div className="meta" style={{ marginTop: 2 }}>{new Date(v.created_at).toLocaleString()}</div>
+                    {canDownload && (
+                      <a href="#" onClick={(e) => { e.preventDefault(); handleDownloadVersion(v); }} style={{ fontSize: 12 }}>下载此版本</a>
+                    )}
+                  </div>
+                ))}
+              </Collapsible>
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

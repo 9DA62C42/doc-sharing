@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
 import { logAction, deleteDocument, uploadNewVersion, applyFolderTemplate } from '../lib/documents';
 import { useAuth } from '../lib/AuthContext.jsx';
+import Collapsible from '../components/Collapsible.jsx';
 
 export default function AdminDocuments() {
   const { user: currentUser, isOwner } = useAuth();
@@ -9,6 +10,9 @@ export default function AdminDocuments() {
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
   const [folders, setFolders] = useState([]);
+  const [tags, setTags] = useState([]);
+  const [newTagName, setNewTagName] = useState('');
+  const [tagError, setTagError] = useState('');
   const [applyingTemplate, setApplyingTemplate] = useState(false);
   const [applyResult, setApplyResult] = useState('');
   const [selectedDocId, setSelectedDocId] = useState(null);
@@ -16,8 +20,6 @@ export default function AdminDocuments() {
   const [userOverrides, setUserOverrides] = useState({}); // userId -> level | 'none'
   const [specialConditions, setSpecialConditions] = useState('');
   const [savingConditions, setSavingConditions] = useState(false);
-  const [tagsInput, setTagsInput] = useState('');
-  const [savingTags, setSavingTags] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
@@ -26,16 +28,18 @@ export default function AdminDocuments() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: d }, { data: g }, { data: u }, { data: f }] = await Promise.all([
+      const [{ data: d }, { data: g }, { data: u }, { data: f }, { data: t }] = await Promise.all([
         supabase.from('documents').select('id, title, special_conditions, storage_path, current_version, tags, owner_id, folder_id').order('title'),
         supabase.from('groups').select('*').order('name'),
         supabase.from('profiles').select('*').order('display_name'),
         supabase.from('folders').select('*').order('name'),
+        supabase.from('tags').select('*').order('name'),
       ]);
       setDocs(d || []);
       setGroups(g || []);
       setUsers(u || []);
       setFolders(f || []);
+      setTags(t || []);
       if (d && d.length) setSelectedDocId(d[0].id);
     })();
   }, []);
@@ -53,7 +57,6 @@ export default function AdminDocuments() {
       setUserOverrides(ul);
       const doc = docs.find((d) => d.id === selectedDocId);
       setSpecialConditions(doc?.special_conditions || '');
-      setTagsInput((doc?.tags || []).join(', '));
     })();
   }, [selectedDocId]);
 
@@ -128,14 +131,28 @@ export default function AdminDocuments() {
     }
   }
 
-  async function saveTags() {
-    setSavingTags(true);
-    const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
-    const { error } = await supabase.from('documents').update({ tags }).eq('id', selectedDocId);
-    setSavingTags(false);
+  async function toggleTag(tagName) {
+    const current = selectedDoc.tags || [];
+    const next = current.includes(tagName) ? current.filter((t) => t !== tagName) : [...current, tagName];
+    const { error } = await supabase.from('documents').update({ tags: next }).eq('id', selectedDocId);
     if (error) return;
     await logAction(selectedDocId, 'permission_changed', { type: 'tags' });
-    setDocs((prev) => prev.map((d) => (d.id === selectedDocId ? { ...d, tags } : d)));
+    setDocs((prev) => prev.map((d) => (d.id === selectedDocId ? { ...d, tags: next } : d)));
+  }
+
+  async function handleCreateTag(e) {
+    e.preventDefault();
+    if (!newTagName.trim()) return;
+    setTagError('');
+    const { data, error } = await supabase.from('tags').insert({ name: newTagName.trim() }).select().single();
+    if (error) { setTagError(error.message); return; }
+    setTags((prev) => [...prev, data].sort((a, b) => a.name.localeCompare(b.name)));
+    setNewTagName('');
+  }
+
+  async function handleDeleteTag(tag) {
+    await supabase.from('tags').delete().eq('id', tag.id);
+    setTags((prev) => prev.filter((t) => t.id !== tag.id));
   }
 
   async function setGroupLevel(groupId, level) {
@@ -223,76 +240,109 @@ export default function AdminDocuments() {
               </div>
 
               <div className="panel-section">
-                <div className="section-label">分组权限</div>
-                {groups.map((g) => (
-                  <div key={g.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
-                    <span className="name">{g.name}</span>
-                    <select value={groupLevels[g.id] || 'none'} onChange={(e) => setGroupLevel(g.id, e.target.value)}>
-                      <option value="none">不可见</option>
-                      <option value="view">仅查看</option>
-                      <option value="download">可下载</option>
-                    </select>
+                <div className="two-col" style={{ gridTemplateColumns: '1fr 1fr', gap: 24 }}>
+                  <div>
+                    <div className="section-label">分组权限</div>
+                    {groups.map((g) => (
+                      <div key={g.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
+                        <span className="name">{g.name}</span>
+                        <select value={groupLevels[g.id] || 'none'} onChange={(e) => setGroupLevel(g.id, e.target.value)}>
+                          <option value="none">不可见</option>
+                          <option value="view">仅查看</option>
+                          <option value="download">可下载</option>
+                        </select>
+                      </div>
+                    ))}
+
+                    <div style={{ marginTop: 16 }}>
+                      <Collapsible title="个人覆盖">
+                        {users.map((u) => (
+                          <div key={u.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
+                            <span className="name">{u.display_name}</span>
+                            <select value={userOverrides[u.id] || 'none'} onChange={(e) => setUserOverride(u.id, e.target.value)}>
+                              <option value="none">无覆盖（跟随分组）</option>
+                              <option value="view">仅查看</option>
+                              <option value="download">可下载</option>
+                              <option value="deny">禁止查看</option>
+                            </select>
+                          </div>
+                        ))}
+                      </Collapsible>
+                    </div>
                   </div>
-                ))}
-              </div>
 
-              <div className="panel-section">
-                <div className="section-label">个人覆盖</div>
-                {users.map((u) => (
-                  <div key={u.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
-                    <span className="name">{u.display_name}</span>
-                    <select value={userOverrides[u.id] || 'none'} onChange={(e) => setUserOverride(u.id, e.target.value)}>
-                      <option value="none">无覆盖（跟随分组）</option>
-                      <option value="view">仅查看</option>
-                      <option value="download">可下载</option>
-                      <option value="deny">禁止查看</option>
-                    </select>
+                  <div>
+                    <Collapsible title="所属文件夹">
+                      <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                        <select value={selectedDoc.folder_id || ''} onChange={(e) => setFolder(e.target.value)}>
+                          <option value="">未分类</option>
+                          {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                        </select>
+                        {selectedDoc.folder_id && (
+                          <button className="btn" disabled={applyingTemplate} onClick={handleApplyTemplate} style={{ flexShrink: 0 }}>
+                            {applyingTemplate ? '套用中…' : '套用文件夹权限'}
+                          </button>
+                        )}
+                      </div>
+                      {applyResult && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{applyResult}</div>}
+                    </Collapsible>
+
+                    <div style={{ marginTop: 16 }}>
+                      <Collapsible title="标签">
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8, marginBottom: 10 }}>
+                          {tags.length === 0 && <span style={{ fontSize: 13, color: 'var(--muted)' }}>还没有标签</span>}
+                          {tags.map((t) => {
+                            const checked = (selectedDoc.tags || []).includes(t.name);
+                            return (
+                              <label
+                                key={t.id}
+                                className="pill"
+                                style={{
+                                  cursor: 'pointer', display: 'inline-flex', alignItems: 'center', gap: 4,
+                                  ...(checked ? { background: 'var(--hero-tint)', color: 'var(--hero-dark)' } : {}),
+                                }}
+                              >
+                                <input type="checkbox" checked={checked} onChange={() => toggleTag(t.name)} style={{ width: 'auto' }} />
+                                {t.name}
+                                <span
+                                  onClick={(e) => { e.preventDefault(); handleDeleteTag(t); }}
+                                  title="删除这个标签（不影响已经打过标签的文档）"
+                                  style={{ marginLeft: 2, opacity: 0.6 }}
+                                >
+                                  ×
+                                </span>
+                              </label>
+                            );
+                          })}
+                        </div>
+                        <form onSubmit={handleCreateTag} style={{ display: 'flex', gap: 8 }}>
+                          <input type="text" placeholder="新建标签" value={newTagName} onChange={(e) => setNewTagName(e.target.value)} />
+                          <button className="btn" type="submit" style={{ flexShrink: 0 }}>新建</button>
+                        </form>
+                        {tagError && <div className="error-text" style={{ marginTop: 6 }}>{tagError}</div>}
+                      </Collapsible>
+                    </div>
+
+                    <div style={{ marginTop: 16 }}>
+                      <Collapsible title="特殊分享条件">
+                        <textarea
+                          value={specialConditions}
+                          onChange={(e) => setSpecialConditions(e.target.value)}
+                          placeholder="例如：本文档为 AI Skill，二次分享前需征得同意，输出成果需在文末署名「XXX」；或：本 .tex 源文件仅供本人编译使用，不得再分发源文件本身。"
+                          rows={4}
+                          style={{
+                            width: '100%', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '8px 10px',
+                            border: '1px solid var(--border-strong)', borderRadius: 'var(--radius)',
+                            background: 'var(--surface)', color: 'var(--text)', resize: 'vertical',
+                          }}
+                        />
+                        <button className="btn btn-primary" style={{ marginTop: 10 }} disabled={savingConditions} onClick={saveSpecialConditions}>
+                          {savingConditions ? '保存中…' : '保存'}
+                        </button>
+                      </Collapsible>
+                    </div>
                   </div>
-                ))}
-              </div>
-
-              <div className="panel-section">
-                <div className="section-label">所属文件夹</div>
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <select value={selectedDoc.folder_id || ''} onChange={(e) => setFolder(e.target.value)}>
-                    <option value="">未分类</option>
-                    {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-                  </select>
-                  {selectedDoc.folder_id && (
-                    <button className="btn" disabled={applyingTemplate} onClick={handleApplyTemplate} style={{ flexShrink: 0 }}>
-                      {applyingTemplate ? '套用中…' : '套用文件夹权限'}
-                    </button>
-                  )}
                 </div>
-                {applyResult && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{applyResult}</div>}
-              </div>
-
-              <div className="panel-section">
-                <div className="section-label">标签（逗号分隔，用于文档列表页筛选）</div>
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <input type="text" placeholder="例如：财务, 合同" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
-                  <button className="btn" disabled={savingTags} onClick={saveTags} style={{ flexShrink: 0 }}>
-                    {savingTags ? '保存中…' : '保存'}
-                  </button>
-                </div>
-              </div>
-
-              <div className="panel-section">
-                <div className="section-label">特殊分享条件（展示在该文档的查看/下载页面上，留空则不展示）</div>
-                <textarea
-                  value={specialConditions}
-                  onChange={(e) => setSpecialConditions(e.target.value)}
-                  placeholder="例如：本文档为 AI Skill，二次分享前需征得同意，输出成果需在文末署名「XXX」；或：本 .tex 源文件仅供本人编译使用，不得再分发源文件本身。"
-                  rows={4}
-                  style={{
-                    width: '100%', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '8px 10px',
-                    border: '1px solid var(--border-strong)', borderRadius: 'var(--radius)',
-                    background: 'var(--surface)', color: 'var(--text)', resize: 'vertical',
-                  }}
-                />
-                <button className="btn btn-primary" style={{ marginTop: 10 }} disabled={savingConditions} onClick={saveSpecialConditions}>
-                  {savingConditions ? '保存中…' : '保存'}
-                </button>
               </div>
             </>
           )}
