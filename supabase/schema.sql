@@ -6,12 +6,27 @@
 
 -- ───────────────────────── 1. 基础表 ─────────────────────────
 
+-- 账号状态：active 正常 / suspended 暂停（仍可登录，但看不到任何文档）/ terminated 销号（永久禁止登录）
+create type public.account_status as enum ('active', 'suspended', 'terminated');
+
 -- 用户资料表：和 Supabase 自带的 auth.users 一一对应
 create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
   is_admin boolean not null default false,
+  account_status public.account_status not null default 'active',
+  status_reason text,
+  status_changed_at timestamptz,
+  status_changed_by uuid references public.profiles(id) on delete set null,
   created_at timestamptz not null default now()
+);
+
+-- 条款同意记录：每个用户对每个条款版本最多同意一次
+create table public.policy_agreements (
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  policy_version text not null,
+  agreed_at timestamptz not null default now(),
+  primary key (user_id, policy_version)
 );
 
 -- 分组（如"财务组"、"客户资料"）
@@ -36,6 +51,9 @@ create table public.documents (
   file_type text,                   -- pdf / docx / xlsx / png ...
   size_bytes bigint,
   owner_id uuid not null references public.profiles(id) on delete set null,
+  -- 分享人可以在此写明该文档的特殊分享条件（例如 Skill 类工具型文档的署名要求、
+  -- .tex 源文件的再分发规则等），会展示在文档查看/下载页面上；为空则不展示。
+  special_conditions text,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
@@ -92,6 +110,11 @@ declare
   v_level public.access_level;
   v_rank constant jsonb := '{"deny": 0, "view": 1, "download": 2}';
 begin
+  -- 非 active 账号（暂停/已销号）一律拒绝访问文档
+  if exists (select 1 from profiles where id = p_user_id and account_status <> 'active') then
+    return false;
+  end if;
+
   -- 管理员或文档所有者：始终可见
   if exists (select 1 from profiles where id = p_user_id and is_admin) then
     return true;
@@ -138,6 +161,7 @@ alter table public.documents enable row level security;
 alter table public.document_group_access enable row level security;
 alter table public.document_user_access enable row level security;
 alter table public.access_logs enable row level security;
+alter table public.policy_agreements enable row level security;
 
 -- profiles：所有登录用户可以看到全部成员（10人小规模，方便选人），只有管理员能改
 create policy "profiles_select_all" on public.profiles
@@ -191,6 +215,15 @@ create policy "logs_select_own_or_admin" on public.access_logs
     or exists (select 1 from profiles where id = auth.uid() and is_admin)
   );
 create policy "logs_insert_own" on public.access_logs
+  for insert with check (user_id = auth.uid());
+
+-- policy_agreements：用户只能看/写自己的同意记录，管理员能看全部（用于核实是否都同意了最新条款）
+create policy "policy_agreements_select_own_or_admin" on public.policy_agreements
+  for select using (
+    user_id = auth.uid()
+    or exists (select 1 from profiles where id = auth.uid() and is_admin)
+  );
+create policy "policy_agreements_insert_own" on public.policy_agreements
   for insert with check (user_id = auth.uid());
 
 -- ───────────────────────── 4. 新用户自动建 profile ─────────────────────────

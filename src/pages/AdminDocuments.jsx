@@ -9,11 +9,13 @@ export default function AdminDocuments() {
   const [selectedDocId, setSelectedDocId] = useState(null);
   const [groupLevels, setGroupLevels] = useState({}); // groupId -> level | 'none'
   const [userOverrides, setUserOverrides] = useState({}); // userId -> level | 'none'
+  const [specialConditions, setSpecialConditions] = useState('');
+  const [savingConditions, setSavingConditions] = useState(false);
 
   useEffect(() => {
     (async () => {
       const [{ data: d }, { data: g }, { data: u }] = await Promise.all([
-        supabase.from('documents').select('id, title').order('title'),
+        supabase.from('documents').select('id, title, special_conditions').order('title'),
         supabase.from('groups').select('*').order('name'),
         supabase.from('profiles').select('*').order('display_name'),
       ]);
@@ -35,8 +37,19 @@ export default function AdminDocuments() {
       const ul = {}; (dua || []).forEach((r) => { ul[r.user_id] = r.level; });
       setGroupLevels(gl);
       setUserOverrides(ul);
+      setSpecialConditions(docs.find((d) => d.id === selectedDocId)?.special_conditions || '');
     })();
   }, [selectedDocId]);
+
+  async function saveSpecialConditions() {
+    setSavingConditions(true);
+    const value = specialConditions.trim() || null;
+    const { error } = await supabase.from('documents').update({ special_conditions: value }).eq('id', selectedDocId);
+    setSavingConditions(false);
+    if (error) return;
+    await logAction(selectedDocId, 'permission_changed', { type: 'special_conditions' });
+    setDocs((prev) => prev.map((d) => (d.id === selectedDocId ? { ...d, special_conditions: value } : d)));
+  }
 
   async function setGroupLevel(groupId, level) {
     if (level === 'none') {
@@ -108,6 +121,26 @@ export default function AdminDocuments() {
                 </select>
               </div>
             ))}
+          </div>
+
+          <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '20px 0 6px' }}>
+            特殊分享条件（展示在该文档的查看/下载页面上，留空则不展示）
+          </div>
+          <div className="card">
+            <textarea
+              value={specialConditions}
+              onChange={(e) => setSpecialConditions(e.target.value)}
+              placeholder="例如：本文档为 AI Skill，二次分享前需征得同意，输出成果需在文末署名「XXX」；或：本 .tex 源文件仅供本人编译使用，不得再分发源文件本身。"
+              rows={4}
+              style={{
+                width: '100%', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '8px 10px',
+                border: '1px solid var(--border-strong)', borderRadius: 'var(--radius)',
+                background: 'var(--surface)', color: 'var(--text)', resize: 'vertical',
+              }}
+            />
+            <button className="btn btn-primary" style={{ marginTop: 10 }} disabled={savingConditions} onClick={saveSpecialConditions}>
+              {savingConditions ? '保存中…' : '保存'}
+            </button>
           </div>
         </div>
       )}

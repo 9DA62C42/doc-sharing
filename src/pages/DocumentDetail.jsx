@@ -57,6 +57,15 @@ export default function DocumentDetail() {
           )}
         </div>
 
+        {doc.special_conditions && (
+          <div className="card" style={{ marginTop: 16, background: 'var(--hero-tint)', borderColor: 'var(--hero)' }}>
+            <div style={{ fontSize: 12, color: 'var(--hero-dark)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6, fontWeight: 600 }}>
+              特殊分享条件
+            </div>
+            <div style={{ fontSize: 13, whiteSpace: 'pre-wrap' }}>{doc.special_conditions}</div>
+          </div>
+        )}
+
         {previewUrl ? (
           doc.file_type === 'pdf' ? (
             <iframe src={previewUrl} title={doc.title} style={{ width: '100%', height: 600, border: 'none', marginTop: 16 }} />
