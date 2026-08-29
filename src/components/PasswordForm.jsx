@@ -22,7 +22,7 @@ export default function PasswordForm({ title, hint, onSuccess, submitLabel = 'ä¿
 
   return (
     <div className="card" style={{ maxWidth: 360, margin: '60px auto' }}>
-      <h2 style={{ marginTop: 0, fontFamily: 'var(--font-serif)' }}>{title}</h2>
+      <h2 style={{ marginTop: 0 }}>{title}</h2>
       {hint && <p style={{ fontSize: 13, color: 'var(--muted)' }}>{hint}</p>}
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 14 }}>

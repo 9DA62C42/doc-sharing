@@ -8,6 +8,7 @@ import Terms from './pages/Terms.jsx';
 import AccountBlocked from './pages/AccountBlocked.jsx';
 import DocumentList from './pages/DocumentList.jsx';
 import DocumentDetail from './pages/DocumentDetail.jsx';
+import AdminDashboard from './pages/AdminDashboard.jsx';
 import AdminUsers from './pages/AdminUsers.jsx';
 import AdminDocuments from './pages/AdminDocuments.jsx';
 import AdminAccounts from './pages/AdminAccounts.jsx';
@@ -43,12 +44,13 @@ export default function App() {
   return (
     <div className="app-shell">
       <header className="masthead">
-        <h1><span className="flag" />文档中心</h1>
+        <h1>文档中心</h1>
         {session && (
           <nav className="nav-links">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>文档</NavLink>
             {isAdmin && (
               <>
+                <NavLink to="/admin" end className={({ isActive }) => (isActive ? 'active' : '')}>概览</NavLink>
                 <NavLink to="/admin/users" className={({ isActive }) => (isActive ? 'active' : '')}>按用户设置权限</NavLink>
                 <NavLink to="/admin/documents" className={({ isActive }) => (isActive ? 'active' : '')}>按文档设置权限</NavLink>
                 <NavLink to="/admin/accounts" className={({ isActive }) => (isActive ? 'active' : '')}>账号管理</NavLink>
@@ -72,6 +74,7 @@ export default function App() {
         <Route path="/" element={<RequireAuth><RequireGoodStanding><DocumentList /></RequireGoodStanding></RequireAuth>} />
         <Route path="/documents/:id" element={<RequireAuth><RequireGoodStanding><DocumentDetail /></RequireGoodStanding></RequireAuth>} />
         <Route path="/change-password" element={<RequireAuth><RequireGoodStanding><ChangePassword /></RequireGoodStanding></RequireAuth>} />
+        <Route path="/admin" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminDashboard /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
         <Route path="/admin/users" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminUsers /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
         <Route path="/admin/documents" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminDocuments /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
         <Route path="/admin/accounts" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminAccounts /></RequireAdmin></RequireGoodStanding></RequireAuth>} />

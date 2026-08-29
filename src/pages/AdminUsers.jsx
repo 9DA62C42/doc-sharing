@@ -95,7 +95,7 @@ export default function AdminUsers() {
     <div>
       <div className="card" style={{ marginBottom: 20, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
         <form onSubmit={handleInvite}>
-          <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>邀请新成员</div>
+          <div className="section-label">邀请新成员</div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input type="email" placeholder="邮箱" value={inviteEmail} onChange={(e) => setInviteEmail(e.target.value)} required />
             <input type="text" placeholder="显示名（可选）" value={inviteName} onChange={(e) => setInviteName(e.target.value)} />
@@ -104,7 +104,7 @@ export default function AdminUsers() {
           {inviteStatus && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{inviteStatus}</div>}
         </form>
         <form onSubmit={handleCreateGroup}>
-          <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 8 }}>新建分组</div>
+          <div className="section-label">新建分组</div>
           <div style={{ display: 'flex', gap: 8 }}>
             <input type="text" placeholder="分组名称" value={newGroupName} onChange={(e) => setNewGroupName(e.target.value)} required />
             <button className="btn" type="submit">创建</button>
@@ -130,9 +130,9 @@ export default function AdminUsers() {
 
       {selectedUser && (
         <div>
-          <h3 style={{ fontFamily: 'var(--font-serif)', marginTop: 0 }}>{selectedUser.display_name}</h3>
+          <h3 style={{ marginTop: 0 }}>{selectedUser.display_name}</h3>
 
-          <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+          <div className="section-label">
             所属分组（决定默认可见范围）
           </div>
           <div className="card" style={{ marginBottom: 20 }}>
@@ -145,7 +145,7 @@ export default function AdminUsers() {
             ))}
           </div>
 
-          <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+          <div className="section-label">
             个人覆盖（在分组权限基础上，针对单份文档单独调整；deny 优先级最高）
           </div>
           <div className="card" style={{ padding: 0 }}>

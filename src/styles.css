@@ -1,33 +1,33 @@
-/* WIRE 预设：黑灰阶承载全部结构，唯一强调色 --hero 只给一个元素用。
-   暗色是默认——按仓库里的原则，暗底上明度反转：最重要的元素变最亮，而不是最黑。 */
+/* 象牙白 + 赤陶（clay）强调色，偏编辑/纸感而不是通用 SaaS 后台配色。
+   浅色是默认——暖白纸面 + 深墨色文字；暗色是同一套关系的反转，而不是纯黑。 */
 
 :root,
-[data-theme="dark"] {
-  --bg: #1C1C1A;
-  --surface: #262622;
-  --surface-2: #302F2A;
-  --text: #F0F0EE;
-  --muted: rgba(240, 240, 238, 0.6);
-  --faint: rgba(240, 240, 238, 0.32);
-  --border: rgba(240, 240, 238, 0.14);
-  --border-strong: rgba(240, 240, 238, 0.28);
-  --hero: #F5572F;
-  --hero-tint: rgba(245, 87, 47, 0.16);
-  --hero-dark: #FF8A63;
+[data-theme="light"] {
+  --bg: #F0EEE6;
+  --surface: #FAF9F4;
+  --surface-2: #F3F1E9;
+  --text: #1F1E1C;
+  --muted: rgba(31, 30, 28, 0.62);
+  --faint: rgba(31, 30, 28, 0.34);
+  --border: rgba(31, 30, 28, 0.12);
+  --border-strong: rgba(31, 30, 28, 0.24);
+  --hero: #CC785C;
+  --hero-tint: rgba(204, 120, 92, 0.14);
+  --hero-dark: #A8593F;
 }
 
-[data-theme="light"] {
-  --bg: #F0F0EE;
-  --surface: #FFFFFF;
-  --surface-2: #F7F7F5;
-  --text: #1F1E1C;
-  --muted: rgba(31, 30, 28, 0.6);
-  --faint: rgba(31, 30, 28, 0.32);
-  --border: rgba(31, 30, 28, 0.16);
-  --border-strong: rgba(31, 30, 28, 0.32);
-  --hero: #F5572F;
-  --hero-tint: rgba(245, 87, 47, 0.1);
-  --hero-dark: #A83B1E;
+[data-theme="dark"] {
+  --bg: #211F1B;
+  --surface: #2A2823;
+  --surface-2: #33312A;
+  --text: #F0EEE6;
+  --muted: rgba(240, 238, 230, 0.62);
+  --faint: rgba(240, 238, 230, 0.34);
+  --border: rgba(240, 238, 230, 0.14);
+  --border-strong: rgba(240, 238, 230, 0.26);
+  --hero: #D9825F;
+  --hero-tint: rgba(217, 130, 95, 0.18);
+  --hero-dark: #F0A47C;
 }
 
 :root {
@@ -47,17 +47,17 @@ body {
 }
 a { color: var(--hero-dark); }
 
+h1, h2, h3 {
+  font-family: var(--font-sans); font-weight: 600; letter-spacing: -0.01em; color: var(--text);
+}
+
 .app-shell { max-width: 1040px; margin: 0 auto; padding: 28px 20px 80px; }
 
 .masthead {
   display: flex; align-items: baseline; justify-content: space-between;
-  border-bottom: 2px solid var(--hero); padding-bottom: 12px; margin-bottom: 24px;
+  border-bottom: 1px solid var(--border); padding-bottom: 16px; margin-bottom: 28px;
 }
-.masthead h1 {
-  font-family: var(--font-serif); font-style: italic; font-size: 26px; margin: 0;
-  display: flex; align-items: baseline; gap: 10px;
-}
-.masthead .flag { width: 8px; height: 20px; background: var(--hero); display: inline-block; }
+.masthead h1 { font-size: 20px; margin: 0; }
 .nav-links { display: flex; align-items: center; gap: 16px; font-size: 13px; }
 .nav-links a { color: var(--muted); text-decoration: none; }
 .nav-links a.active { color: var(--text); font-weight: 600; border-bottom: 2px solid var(--hero); }
@@ -75,8 +75,8 @@ a { color: var(--hero-dark); }
   padding: 8px 14px; border-radius: var(--radius); cursor: pointer;
 }
 .btn:hover { border-color: var(--hero); }
-.btn-primary { background: var(--hero); border-color: var(--hero); color: #fff; }
-.btn-primary:hover { background: var(--hero-dark); }
+.btn-primary { background: var(--text); border-color: var(--text); color: var(--bg); }
+.btn-primary:hover { opacity: 0.85; }
 .btn-ghost { background: transparent; border-color: transparent; }
 .btn-danger { color: var(--hero-dark); }
 
@@ -110,13 +110,17 @@ label { font-size: 12px; color: var(--muted); display: block; margin-bottom: 4px
 }
 .list-item.active { border-left-color: var(--hero); background: var(--hero-tint); font-weight: 500; }
 
+.section-label { font-size: 13px; color: var(--muted); margin-bottom: 6px; }
+
+/* 一个管理面板只用一张 .card 包住，内部小节靠 .panel-section 的顶部细线分隔，
+   不要每个小节都单独套一张卡片——避免"一堆卡片"的通用后台观感。 */
+.panel-section + .panel-section { border-top: 1px solid var(--border); margin-top: 20px; padding-top: 20px; }
+
 .empty { padding: 24px; text-align: center; color: var(--muted); border: 1px dashed var(--border); border-radius: 10px; font-size: 13px; }
 .error-text { color: var(--hero-dark); font-size: 13px; margin-top: 6px; }
 
-.stat-card {
-  background: var(--surface); border: 1px solid var(--border); border-radius: 12px;
-  padding: 16px; text-align: left;
-}
-.stat-card .n { font-family: var(--font-serif); font-size: 30px; font-weight: 600; color: var(--text); }
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0; margin-bottom: 24px; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+.stat-card { padding: 16px; text-align: left; border-left: 1px solid var(--border); }
+.stat-card:first-child { border-left: none; }
+.stat-card .n { font-size: 28px; font-weight: 600; color: var(--text); }
 .stat-card .l { font-size: 12px; color: var(--muted); margin-top: 2px; }
-.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 24px; }

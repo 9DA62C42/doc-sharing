@@ -54,8 +54,23 @@ create table public.documents (
   -- 分享人可以在此写明该文档的特殊分享条件（例如 Skill 类工具型文档的署名要求、
   -- .tex 源文件的再分发规则等），会展示在文档查看/下载页面上；为空则不展示。
   special_conditions text,
+  current_version int not null default 1,
+  tags text[] not null default '{}',
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
+);
+
+-- 文档版本历史：每次"上传新版本"时，把当前文件归档成一条历史记录。
+-- 不存"谁上传的"，够用即可；这张表只读不改，靠 documents 表的 owner_id 追溯上传者。
+create table public.document_versions (
+  id uuid primary key default gen_random_uuid(),
+  document_id uuid not null references public.documents(id) on delete cascade,
+  version_number int not null,
+  storage_path text not null,
+  file_type text,
+  size_bytes bigint,
+  created_at timestamptz not null default now(),
+  unique (document_id, version_number)
 );
 
 -- 权限档位：view（仅查看/预览）、download（可下载）、deny（明确禁止，最高优先级）
@@ -162,6 +177,7 @@ alter table public.document_group_access enable row level security;
 alter table public.document_user_access enable row level security;
 alter table public.access_logs enable row level security;
 alter table public.policy_agreements enable row level security;
+alter table public.document_versions enable row level security;
 
 -- profiles：所有登录用户可以看到全部成员（10人小规模，方便选人），只有管理员能改
 create policy "profiles_select_all" on public.profiles
@@ -225,6 +241,12 @@ create policy "policy_agreements_select_own_or_admin" on public.policy_agreement
   );
 create policy "policy_agreements_insert_own" on public.policy_agreements
   for insert with check (user_id = auth.uid());
+
+-- document_versions：能看这份文档的人就能看它的版本列表，只有管理员能写入新版本记录
+create policy "document_versions_select_if_accessible" on public.document_versions
+  for select using (public.has_document_access(document_id, auth.uid(), 'view'));
+create policy "document_versions_insert_admin_only" on public.document_versions
+  for insert with check (exists (select 1 from profiles where id = auth.uid() and is_admin));
 
 -- ───────────────────────── 4. 新用户自动建 profile ─────────────────────────
 -- 管理员用 inviteUserByEmail 邀请新用户后，auth.users 会多一条记录，

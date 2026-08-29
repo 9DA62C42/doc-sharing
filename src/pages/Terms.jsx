@@ -27,7 +27,7 @@ export default function Terms() {
   return (
     <div>
       <div className="card" style={{ marginBottom: 20 }}>
-        <h2 style={{ marginTop: 0, fontFamily: 'var(--font-serif)' }}>使用前请阅读并同意以下条款</h2>
+        <h2 style={{ marginTop: 0 }}>使用前请阅读并同意以下条款</h2>
         <p style={{ fontSize: 13, color: 'var(--muted)' }}>
           条款版本更新后需要重新同意一次，之后不会再重复弹出，直到下一次版本更新。
         </p>
@@ -35,7 +35,7 @@ export default function Terms() {
 
       {POLICIES.map((p) => (
         <div key={p.key} className="card" style={{ marginBottom: 20 }}>
-          <h3 style={{ marginTop: 0, fontFamily: 'var(--font-serif)' }}>{p.title}</h3>
+          <h3 style={{ marginTop: 0 }}>{p.title}</h3>
           <pre style={{
             whiteSpace: 'pre-wrap', wordBreak: 'break-word', fontFamily: 'var(--font-sans)',
             fontSize: 13, lineHeight: 1.7, maxHeight: 320, overflowY: 'auto',

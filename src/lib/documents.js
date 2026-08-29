@@ -31,6 +31,51 @@ export async function deleteDocument(doc) {
   await logAction(null, 'delete', { documentId: doc.id, title: doc.title });
 }
 
+// 上传新版本：先把当前文件归档成一条历史记录，再把 documents 表指向新文件。
+export async function uploadNewVersion(doc, file) {
+  const archivedVersion = doc.current_version || 1;
+  const { error: archiveError } = await supabase.from('document_versions').insert({
+    document_id: doc.id,
+    version_number: archivedVersion,
+    storage_path: doc.storage_path,
+    file_type: doc.file_type,
+    size_bytes: doc.size_bytes,
+  });
+  if (archiveError) throw archiveError;
+
+  const nextVersion = archivedVersion + 1;
+  const storagePath = `${doc.id}/v${nextVersion}-${file.name}`;
+  const { error: uploadError } = await supabase.storage
+    .from('documents')
+    .upload(storagePath, file, { upsert: true });
+  if (uploadError) throw uploadError;
+
+  const fileType = file.name.split('.').pop();
+  const { error: updateError } = await supabase
+    .from('documents')
+    .update({
+      storage_path: storagePath,
+      file_type: fileType,
+      size_bytes: file.size,
+      current_version: nextVersion,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('id', doc.id);
+  if (updateError) throw updateError;
+
+  await logAction(doc.id, 'upload', { type: 'new_version', version: nextVersion });
+  return { storage_path: storagePath, file_type: fileType, size_bytes: file.size, current_version: nextVersion };
+}
+
+export async function listVersions(documentId) {
+  const { data } = await supabase
+    .from('document_versions')
+    .select('*')
+    .eq('document_id', documentId)
+    .order('version_number', { ascending: false });
+  return data || [];
+}
+
 export async function uploadDocument(file, title) {
   const { data: userData } = await supabase.auth.getUser();
   const ownerId = userData?.user?.id;

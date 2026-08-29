@@ -5,7 +5,7 @@ export default function AccountBlocked() {
 
   return (
     <div className="card" style={{ maxWidth: 420, margin: '80px auto', textAlign: 'center' }}>
-      <h2 style={{ marginTop: 0, fontFamily: 'var(--font-serif)' }}>账号已被暂停</h2>
+      <h2 style={{ marginTop: 0 }}>账号已被暂停</h2>
       <p style={{ fontSize: 13, color: 'var(--muted)' }}>
         {profile?.status_reason || '如需了解详情请联系管理员。'}
       </p>

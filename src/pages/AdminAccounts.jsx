@@ -89,13 +89,13 @@ export default function AdminAccounts() {
 
       {selectedUser && (
         <div>
-          <h3 style={{ fontFamily: 'var(--font-serif)', marginTop: 0 }}>
+          <h3 style={{ marginTop: 0 }}>
             {selectedUser.display_name}
             <StatusPill status={selectedUser.account_status} />
           </h3>
 
           <div className="card" style={{ marginBottom: 20 }}>
-            <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
+            <div className="section-label">
               当前状态
             </div>
             <div style={{ fontSize: 14, marginBottom: 8 }}>{STATUS_LABEL[selectedUser.account_status]}</div>

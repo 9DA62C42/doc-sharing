@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { logAction, deleteDocument } from '../lib/documents';
+import { logAction, deleteDocument, uploadNewVersion } from '../lib/documents';
 
 export default function AdminDocuments() {
   const [docs, setDocs] = useState([]);
@@ -11,14 +11,18 @@ export default function AdminDocuments() {
   const [userOverrides, setUserOverrides] = useState({}); // userId -> level | 'none'
   const [specialConditions, setSpecialConditions] = useState('');
   const [savingConditions, setSavingConditions] = useState(false);
+  const [tagsInput, setTagsInput] = useState('');
+  const [savingTags, setSavingTags] = useState(false);
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState('');
+  const [uploadingVersion, setUploadingVersion] = useState(false);
+  const [versionError, setVersionError] = useState('');
 
   useEffect(() => {
     (async () => {
       const [{ data: d }, { data: g }, { data: u }] = await Promise.all([
-        supabase.from('documents').select('id, title, special_conditions, storage_path').order('title'),
+        supabase.from('documents').select('id, title, special_conditions, storage_path, current_version, tags').order('title'),
         supabase.from('groups').select('*').order('name'),
         supabase.from('profiles').select('*').order('display_name'),
       ]);
@@ -40,7 +44,9 @@ export default function AdminDocuments() {
       const ul = {}; (dua || []).forEach((r) => { ul[r.user_id] = r.level; });
       setGroupLevels(gl);
       setUserOverrides(ul);
-      setSpecialConditions(docs.find((d) => d.id === selectedDocId)?.special_conditions || '');
+      const doc = docs.find((d) => d.id === selectedDocId);
+      setSpecialConditions(doc?.special_conditions || '');
+      setTagsInput((doc?.tags || []).join(', '));
     })();
   }, [selectedDocId]);
 
@@ -59,6 +65,22 @@ export default function AdminDocuments() {
     }
   }
 
+  async function handleUploadVersion(e) {
+    const file = e.target.files[0];
+    if (!file) return;
+    setUploadingVersion(true);
+    setVersionError('');
+    try {
+      const updated = await uploadNewVersion(selectedDoc, file);
+      setDocs((prev) => prev.map((d) => (d.id === selectedDocId ? { ...d, ...updated } : d)));
+    } catch (err) {
+      setVersionError(err.message);
+    } finally {
+      setUploadingVersion(false);
+      e.target.value = '';
+    }
+  }
+
   async function saveSpecialConditions() {
     setSavingConditions(true);
     const value = specialConditions.trim() || null;
@@ -67,6 +89,16 @@ export default function AdminDocuments() {
     if (error) return;
     await logAction(selectedDocId, 'permission_changed', { type: 'special_conditions' });
     setDocs((prev) => prev.map((d) => (d.id === selectedDocId ? { ...d, special_conditions: value } : d)));
+  }
+
+  async function saveTags() {
+    setSavingTags(true);
+    const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
+    const { error } = await supabase.from('documents').update({ tags }).eq('id', selectedDocId);
+    setSavingTags(false);
+    if (error) return;
+    await logAction(selectedDocId, 'permission_changed', { type: 'tags' });
+    setDocs((prev) => prev.map((d) => (d.id === selectedDocId ? { ...d, tags } : d)));
   }
 
   async function setGroupLevel(groupId, level) {
@@ -101,7 +133,7 @@ export default function AdminDocuments() {
           <div
             key={d.id}
             className={`list-item ${d.id === selectedDocId ? 'active' : ''}`}
-            onClick={() => { setSelectedDocId(d.id); setConfirmingDelete(false); setDeleteError(''); }}
+            onClick={() => { setSelectedDocId(d.id); setConfirmingDelete(false); setDeleteError(''); setVersionError(''); }}
           >
             {d.title}
           </div>
@@ -109,27 +141,37 @@ export default function AdminDocuments() {
       </div>
 
       {selectedDoc && (
-        <div>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
-            <h3 style={{ fontFamily: 'var(--font-serif)', margin: 0 }}>{selectedDoc.title}</h3>
-            {confirmingDelete ? (
-              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                <span style={{ fontSize: 12, color: 'var(--muted)' }}>确认删除？不可恢复</span>
-                <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
-                  {deleting ? '删除中…' : '确认删除'}
-                </button>
-                <button className="btn" disabled={deleting} onClick={() => setConfirmingDelete(false)}>取消</button>
-              </div>
-            ) : (
-              <button className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>删除文档</button>
-            )}
+        <div className="card">
+          <div className="panel-section" style={{ marginTop: 0, paddingTop: 0 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
+              <h3 style={{ margin: 0 }}>
+                {selectedDoc.title}
+                <span className="pill" style={{ marginLeft: 8 }}>v{selectedDoc.current_version}</span>
+              </h3>
+              {confirmingDelete ? (
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>确认删除？不可恢复</span>
+                  <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
+                    {deleting ? '删除中…' : '确认删除'}
+                  </button>
+                  <button className="btn" disabled={deleting} onClick={() => setConfirmingDelete(false)}>取消</button>
+                </div>
+              ) : (
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <label className="btn" style={{ cursor: 'pointer' }}>
+                    {uploadingVersion ? '上传中…' : '上传新版本'}
+                    <input type="file" style={{ display: 'none' }} onChange={handleUploadVersion} disabled={uploadingVersion} />
+                  </label>
+                  <button className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>删除文档</button>
+                </div>
+              )}
+            </div>
+            {deleteError && <div className="error-text" style={{ marginTop: 8 }}>{deleteError}</div>}
+            {versionError && <div className="error-text" style={{ marginTop: 8 }}>{versionError}</div>}
           </div>
-          {deleteError && <div className="error-text" style={{ marginBottom: 12 }}>{deleteError}</div>}
 
-          <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
-            分组权限
-          </div>
-          <div className="card" style={{ padding: 0, marginBottom: 20 }}>
+          <div className="panel-section">
+            <div className="section-label">分组权限</div>
             {groups.map((g) => (
               <div key={g.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
                 <span className="name">{g.name}</span>
@@ -142,10 +184,8 @@ export default function AdminDocuments() {
             ))}
           </div>
 
-          <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
-            个人覆盖
-          </div>
-          <div className="card" style={{ padding: 0 }}>
+          <div className="panel-section">
+            <div className="section-label">个人覆盖</div>
             {users.map((u) => (
               <div key={u.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
                 <span className="name">{u.display_name}</span>
@@ -159,10 +199,18 @@ export default function AdminDocuments() {
             ))}
           </div>
 
-          <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', margin: '20px 0 6px' }}>
-            特殊分享条件（展示在该文档的查看/下载页面上，留空则不展示）
+          <div className="panel-section">
+            <div className="section-label">标签（逗号分隔，用于文档列表页筛选）</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="text" placeholder="例如：财务, 合同" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
+              <button className="btn" disabled={savingTags} onClick={saveTags} style={{ flexShrink: 0 }}>
+                {savingTags ? '保存中…' : '保存'}
+              </button>
+            </div>
           </div>
-          <div className="card">
+
+          <div className="panel-section">
+            <div className="section-label">特殊分享条件（展示在该文档的查看/下载页面上，留空则不展示）</div>
             <textarea
               value={specialConditions}
               onChange={(e) => setSpecialConditions(e.target.value)}
