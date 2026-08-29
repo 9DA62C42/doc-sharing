@@ -26,7 +26,7 @@ export default function DocumentList() {
       supabase.from('documents').select('*, profiles(display_name)').order('updated_at', { ascending: false }),
       supabase.from('folders').select('id, name'),
     ]);
-    if (error) setError(error.message);
+    if (error) { setError(error.message); setDocs([]); }
     else setDocs(data);
     setFolders(f || []);
   }
