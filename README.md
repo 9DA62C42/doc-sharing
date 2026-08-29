@@ -48,15 +48,15 @@ Netlify(前端托管) + Supabase(数据库/认证/存储) 搭建的内部文档�
 2. 名字必须叫 `documents`(和 schema.sql 里的 policy 对应)。
 3. **不要勾选 Public**——保持 private，权限完全靠 schema.sql 里已经写好的 storage policy 控制，谁能看数据库里那条文档记录，谁才能读到对应的文件。
 
-## 4. 把自己设成第一个管理员
+## 4. 把自己设成第一个管理员 + 网站拥有人
 
 1. **Authentication → Users → Add user**，用你自己的邮箱创建账号（这一步先手动建，后面团队成员就用"邀请"功能，不用你手动建了）。
 2. 回到 **SQL Editor**，执行(邮箱换成你自己的)：
    ```sql
-   update public.profiles set is_admin = true
+   update public.profiles set is_admin = true, is_owner = true
    where id = (select id from auth.users where email = 'you@example.com');
    ```
-3. 这样你就是管理员了，能看到全部文档和管理后台。
+3. 这样你就是管理员了，能看到全部文档和管理后台。`is_owner` 是唯一能在"账号管理"页面里任命/撤销其他人管理员身份的角色，这一步只需要跑一次——以后新增管理员就直接在界面上操作，不用再回来跑 SQL。
 
 ## 5. 拿到前端要用的密钥
 

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, functionErrorMessage } from '../supabaseClient';
 import { logAction } from '../lib/documents';
 
 export default function AdminUsers() {
@@ -77,7 +77,7 @@ export default function AdminUsers() {
         redirectTo: `${window.location.origin}/set-password`,
       },
     });
-    if (error) { setInviteStatus(`失败：${error.message}`); return; }
+    if (error) { setInviteStatus(`失败：${await functionErrorMessage(error)}`); return; }
     setInviteStatus(`已向 ${inviteEmail} 发送邀请邮件`);
     setInviteEmail(''); setInviteName('');
   }

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../supabaseClient';
+import { supabase, functionErrorMessage } from '../supabaseClient';
 import { logAction } from '../lib/documents';
 import { useAuth } from '../lib/AuthContext.jsx';
 
@@ -10,19 +10,30 @@ function StatusPill({ status }) {
   return <span className={`pill ${status === 'terminated' ? 'pill-deny' : ''}`} style={{ marginLeft: 6 }}>{STATUS_LABEL[status]}</span>;
 }
 
+function RolePill({ user }) {
+  if (user.is_owner) return <span className="pill" style={{ marginLeft: 6 }}>站长</span>;
+  if (user.is_admin) return <span className="pill" style={{ marginLeft: 6 }}>管理员</span>;
+  return null;
+}
+
 function formatDateTime(iso) {
   if (!iso) return '—';
   return new Date(iso).toLocaleString();
 }
 
 export default function AdminAccounts() {
-  const { user: currentUser } = useAuth();
+  const { user: currentUser, isOwner } = useAuth();
   const [users, setUsers] = useState([]);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [pendingAction, setPendingAction] = useState(null); // 'suspend' | 'terminate' | null
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState('');
+  const [nameDraft, setNameDraft] = useState('');
+  const [savingName, setSavingName] = useState(false);
+  const [nameError, setNameError] = useState('');
+  const [savingRole, setSavingRole] = useState(false);
+  const [roleError, setRoleError] = useState('');
 
   async function load() {
     const { data } = await supabase.from('profiles').select('*').order('display_name');
@@ -32,6 +43,11 @@ export default function AdminAccounts() {
   }
 
   useEffect(() => { load(); }, [currentUser]);
+
+  useEffect(() => {
+    const u = users.find((x) => x.id === selectedUserId);
+    setNameDraft(u?.display_name || '');
+  }, [selectedUserId, users]);
 
   function startAction(action) {
     setError('');
@@ -51,7 +67,7 @@ export default function AdminAccounts() {
       body: { userId: targetUserId, action, reason: actionReason || undefined },
     });
     setBusy(false);
-    if (error) { setError(error.message); return; }
+    if (error) { setError(await functionErrorMessage(error)); return; }
     await logAction(null, 'account_status_changed', { targetUserId, action, reason: actionReason || null });
     setUsers((prev) => prev.map((u) => (
       u.id === targetUserId
@@ -67,6 +83,27 @@ export default function AdminAccounts() {
     await runAction(pendingAction, selectedUserId, reason.trim());
   }
 
+  async function handleSaveName() {
+    if (!nameDraft.trim()) { setNameError('名称不能为空'); return; }
+    setSavingName(true);
+    setNameError('');
+    const { error } = await supabase.from('profiles').update({ display_name: nameDraft.trim() }).eq('id', selectedUserId);
+    setSavingName(false);
+    if (error) { setNameError(error.message); return; }
+    await logAction(null, 'permission_changed', { type: 'rename_user', targetUserId: selectedUserId });
+    setUsers((prev) => prev.map((u) => (u.id === selectedUserId ? { ...u, display_name: nameDraft.trim() } : u)));
+  }
+
+  async function handleToggleAdmin(targetUser) {
+    setSavingRole(true);
+    setRoleError('');
+    const { error } = await supabase.from('profiles').update({ is_admin: !targetUser.is_admin }).eq('id', targetUser.id);
+    setSavingRole(false);
+    if (error) { setRoleError(error.message); return; }
+    await logAction(null, 'permission_changed', { type: 'admin_role', targetUserId: targetUser.id, is_admin: !targetUser.is_admin });
+    setUsers((prev) => prev.map((u) => (u.id === targetUser.id ? { ...u, is_admin: !u.is_admin } : u)));
+  }
+
   const selectedUser = users.find((u) => u.id === selectedUserId);
 
   return (
@@ -79,9 +116,10 @@ export default function AdminAccounts() {
           <div
             key={u.id}
             className={`list-item ${u.id === selectedUserId ? 'active' : ''}`}
-            onClick={() => { setSelectedUserId(u.id); cancelAction(); setError(''); }}
+            onClick={() => { setSelectedUserId(u.id); cancelAction(); setError(''); setNameError(''); setRoleError(''); }}
           >
             {u.display_name}
+            <RolePill user={u} />
             <StatusPill status={u.account_status} />
           </div>
         ))}
@@ -91,8 +129,30 @@ export default function AdminAccounts() {
         <div>
           <h3 style={{ marginTop: 0 }}>
             {selectedUser.display_name}
+            <RolePill user={selectedUser} />
             <StatusPill status={selectedUser.account_status} />
           </h3>
+
+          <div className="card" style={{ marginBottom: 20 }}>
+            <div className="section-label">显示名称</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <input type="text" value={nameDraft} onChange={(e) => setNameDraft(e.target.value)} />
+              <button className="btn btn-primary" disabled={savingName} onClick={handleSaveName}>
+                {savingName ? '保存中…' : '保存'}
+              </button>
+            </div>
+            {nameError && <div className="error-text" style={{ marginTop: 8 }}>{nameError}</div>}
+          </div>
+
+          {isOwner && (
+            <div className="card" style={{ marginBottom: 20 }}>
+              <div className="section-label">管理员权限</div>
+              <button className="btn" disabled={savingRole} onClick={() => handleToggleAdmin(selectedUser)}>
+                {savingRole ? '处理中…' : selectedUser.is_admin ? '取消管理员' : '设为管理员'}
+              </button>
+              {roleError && <div className="error-text" style={{ marginTop: 8 }}>{roleError}</div>}
+            </div>
+          )}
 
           <div className="card" style={{ marginBottom: 20 }}>
             <div className="section-label">

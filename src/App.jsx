@@ -43,10 +43,11 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      <header className="masthead">
-        <h1>文档中心</h1>
+      <aside className="sidebar">
+        <div className="sidebar-brand">文档中心</div>
+
         {session && (
-          <nav className="nav-links">
+          <nav className="sidebar-nav">
             <NavLink to="/" end className={({ isActive }) => (isActive ? 'active' : '')}>文档</NavLink>
             {isAdmin && (
               <>
@@ -58,28 +59,37 @@ export default function App() {
               </>
             )}
             <NavLink to="/change-password" className={({ isActive }) => (isActive ? 'active' : '')}>修改密码</NavLink>
-            <span style={{ color: 'var(--muted)' }}>{profile?.display_name}</span>
-            <a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>退出</a>
-            <button className="theme-toggle" onClick={toggle} title="切换亮暗模式" aria-label="切换亮暗模式">
-              {theme === 'dark' ? '☀' : '●'}
-            </button>
           </nav>
         )}
-      </header>
 
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/set-password" element={<SetPassword />} />
-        <Route path="/terms" element={<RequireAuth><Terms /></RequireAuth>} />
-        <Route path="/" element={<RequireAuth><RequireGoodStanding><DocumentList /></RequireGoodStanding></RequireAuth>} />
-        <Route path="/documents/:id" element={<RequireAuth><RequireGoodStanding><DocumentDetail /></RequireGoodStanding></RequireAuth>} />
-        <Route path="/change-password" element={<RequireAuth><RequireGoodStanding><ChangePassword /></RequireGoodStanding></RequireAuth>} />
-        <Route path="/admin" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminDashboard /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
-        <Route path="/admin/users" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminUsers /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
-        <Route path="/admin/documents" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminDocuments /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
-        <Route path="/admin/accounts" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminAccounts /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
-        <Route path="/admin/logs" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminLogs /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
-      </Routes>
+        {session && (
+          <div className="sidebar-footer">
+            <div className="sidebar-footer-row">
+              <span className="user-name">{profile?.display_name}</span>
+              <button className="theme-toggle" onClick={toggle} title="切换亮暗模式" aria-label="切换亮暗模式">
+                {theme === 'dark' ? '☀' : '●'}
+              </button>
+            </div>
+            <a href="#" onClick={(e) => { e.preventDefault(); signOut(); }}>退出</a>
+          </div>
+        )}
+      </aside>
+
+      <main className="main-content">
+        <Routes>
+          <Route path="/login" element={<Login />} />
+          <Route path="/set-password" element={<SetPassword />} />
+          <Route path="/terms" element={<RequireAuth><Terms /></RequireAuth>} />
+          <Route path="/" element={<RequireAuth><RequireGoodStanding><DocumentList /></RequireGoodStanding></RequireAuth>} />
+          <Route path="/documents/:id" element={<RequireAuth><RequireGoodStanding><DocumentDetail /></RequireGoodStanding></RequireAuth>} />
+          <Route path="/change-password" element={<RequireAuth><RequireGoodStanding><ChangePassword /></RequireGoodStanding></RequireAuth>} />
+          <Route path="/admin" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminDashboard /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
+          <Route path="/admin/users" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminUsers /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
+          <Route path="/admin/documents" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminDocuments /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
+          <Route path="/admin/accounts" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminAccounts /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
+          <Route path="/admin/logs" element={<RequireAuth><RequireGoodStanding><RequireAdmin><AdminLogs /></RequireAdmin></RequireGoodStanding></RequireAuth>} />
+        </Routes>
+      </main>
     </div>
   );
 }

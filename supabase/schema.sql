@@ -14,6 +14,7 @@ create table public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   display_name text not null,
   is_admin boolean not null default false,
+  is_owner boolean not null default false,
   account_status public.account_status not null default 'active',
   status_reason text,
   status_changed_at timestamptz,
@@ -179,13 +180,25 @@ alter table public.access_logs enable row level security;
 alter table public.policy_agreements enable row level security;
 alter table public.document_versions enable row level security;
 
--- profiles：所有登录用户可以看到全部成员（10人小规模，方便选人），只有管理员能改
+-- profiles：所有登录用户可以看到全部成员（10人小规模，方便选人）。
+-- 管理员可以改成员的显示名称，但只有网站拥有人（is_owner）能改 is_admin/is_owner
+-- 这两个角色字段本身；日常的账号状态变更走 manage-account 这个 Edge Function
+-- （用 service_role 绕过 RLS），也不经过这条策略。
 create policy "profiles_select_all" on public.profiles
   for select using (auth.uid() is not null);
-create policy "profiles_update_admin" on public.profiles
-  for update using (exists (select 1 from profiles where id = auth.uid() and is_admin));
-create policy "profiles_insert_admin" on public.profiles
-  for insert with check (exists (select 1 from profiles where id = auth.uid() and is_admin));
+create policy "profiles_update_admin_scoped" on public.profiles
+  for update using (
+    exists (select 1 from profiles where id = auth.uid() and is_admin)
+  )
+  with check (
+    exists (select 1 from profiles where id = auth.uid() and is_owner)
+    or (
+      is_admin = (select p2.is_admin from profiles p2 where p2.id = profiles.id)
+      and is_owner = (select p2.is_owner from profiles p2 where p2.id = profiles.id)
+    )
+  );
+create policy "profiles_insert_owner_only" on public.profiles
+  for insert with check (exists (select 1 from profiles where id = auth.uid() and is_owner));
 
 -- groups / group_members：所有人可读，管理员可写
 create policy "groups_select_all" on public.groups
@@ -302,8 +315,9 @@ create policy "storage_delete_owner_or_admin" on storage.objects
     )
   );
 
--- ───────────────────────── 6. 把自己设为第一个管理员 ─────────────────────────
+-- ───────────────────────── 6. 把自己设为第一个管理员 + 网站拥有人 ─────────────────────────
 -- 执行完上面所有内容后，先在 Supabase 后台 Authentication 里手动创建你自己的账号，
--- 再回来执行下面这行（把邮箱换成你自己的），把自己设为管理员：
+-- 再回来执行下面这行（把邮箱换成你自己的）。is_owner 是唯一能在界面上任命/撤销其他人
+-- 管理员身份的角色，这一步只能靠 SQL 手动设置，之后就不用再跑这条命令了：
 --
--- update public.profiles set is_admin = true where id = (select id from auth.users where email = 'you@example.com');
+-- update public.profiles set is_admin = true, is_owner = true where id = (select id from auth.users where email = 'you@example.com');
