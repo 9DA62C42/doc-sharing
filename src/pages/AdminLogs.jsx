@@ -30,7 +30,7 @@ export default function AdminLogs() {
       const [{ data: l }, { data: u }] = await Promise.all([
         supabase
           .from('access_logs')
-          .select('*, profiles(display_name), documents(title)')
+          .select('*, profiles!access_logs_user_id_fkey(display_name), documents!access_logs_document_id_fkey(title)')
           .order('created_at', { ascending: false })
           .limit(200),
         supabase.from('profiles').select('id, display_name').order('display_name'),

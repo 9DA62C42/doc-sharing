@@ -22,7 +22,7 @@ export default function DocumentDetail() {
   useEffect(() => {
     (async () => {
       const { data: docData, error: docError } = await supabase
-        .from('documents').select('*, profiles(display_name)').eq('id', id).single();
+        .from('documents').select('*, profiles!documents_owner_id_fkey(display_name)').eq('id', id).single();
       if (docError) { setError('无法访问该文档（可能已被移除权限）'); return; }
       setDoc(docData);
 

@@ -23,7 +23,7 @@ export default function DocumentList() {
   async function load() {
     // RLS 已经在数据库层过滤好了：这里查出来的就是当前用户能看到的全部文档
     const [{ data, error }, { data: f }] = await Promise.all([
-      supabase.from('documents').select('*, profiles(display_name)').order('updated_at', { ascending: false }),
+      supabase.from('documents').select('*, profiles!documents_owner_id_fkey(display_name)').order('updated_at', { ascending: false }),
       supabase.from('folders').select('id, name'),
     ]);
     if (error) { setError(error.message); setDocs([]); }
