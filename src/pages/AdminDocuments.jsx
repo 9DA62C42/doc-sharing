@@ -1,11 +1,16 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { logAction, deleteDocument, uploadNewVersion } from '../lib/documents';
+import { logAction, deleteDocument, uploadNewVersion, applyFolderTemplate } from '../lib/documents';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 export default function AdminDocuments() {
+  const { user: currentUser, isOwner } = useAuth();
   const [docs, setDocs] = useState([]);
   const [groups, setGroups] = useState([]);
   const [users, setUsers] = useState([]);
+  const [folders, setFolders] = useState([]);
+  const [applyingTemplate, setApplyingTemplate] = useState(false);
+  const [applyResult, setApplyResult] = useState('');
   const [selectedDocId, setSelectedDocId] = useState(null);
   const [groupLevels, setGroupLevels] = useState({}); // groupId -> level | 'none'
   const [userOverrides, setUserOverrides] = useState({}); // userId -> level | 'none'
@@ -21,14 +26,16 @@ export default function AdminDocuments() {
 
   useEffect(() => {
     (async () => {
-      const [{ data: d }, { data: g }, { data: u }] = await Promise.all([
-        supabase.from('documents').select('id, title, special_conditions, storage_path, current_version, tags').order('title'),
+      const [{ data: d }, { data: g }, { data: u }, { data: f }] = await Promise.all([
+        supabase.from('documents').select('id, title, special_conditions, storage_path, current_version, tags, owner_id, folder_id').order('title'),
         supabase.from('groups').select('*').order('name'),
         supabase.from('profiles').select('*').order('display_name'),
+        supabase.from('folders').select('*').order('name'),
       ]);
       setDocs(d || []);
       setGroups(g || []);
       setUsers(u || []);
+      setFolders(f || []);
       if (d && d.length) setSelectedDocId(d[0].id);
     })();
   }, []);
@@ -91,6 +98,36 @@ export default function AdminDocuments() {
     setDocs((prev) => prev.map((d) => (d.id === selectedDocId ? { ...d, special_conditions: value } : d)));
   }
 
+  async function setFolder(folderId) {
+    setApplyResult('');
+    const value = folderId || null;
+    const { error } = await supabase.from('documents').update({ folder_id: value }).eq('id', selectedDocId);
+    if (error) return;
+    await logAction(selectedDocId, 'permission_changed', { type: 'folder', folderId: value });
+    setDocs((prev) => prev.map((d) => (d.id === selectedDocId ? { ...d, folder_id: value } : d)));
+  }
+
+  async function handleApplyTemplate() {
+    setApplyingTemplate(true);
+    setApplyResult('');
+    try {
+      await applyFolderTemplate(selectedDocId, selectedDoc.folder_id);
+      const [{ data: dga }, { data: dua }] = await Promise.all([
+        supabase.from('document_group_access').select('group_id, level').eq('document_id', selectedDocId),
+        supabase.from('document_user_access').select('user_id, level').eq('document_id', selectedDocId),
+      ]);
+      const gl = {}; (dga || []).forEach((r) => { gl[r.group_id] = r.level; });
+      const ul = {}; (dua || []).forEach((r) => { ul[r.user_id] = r.level; });
+      setGroupLevels(gl);
+      setUserOverrides(ul);
+      setApplyResult('已套用文件夹的默认权限模板。');
+    } catch (err) {
+      setApplyResult(`套用失败：${err.message}`);
+    } finally {
+      setApplyingTemplate(false);
+    }
+  }
+
   async function saveTags() {
     setSavingTags(true);
     const tags = tagsInput.split(',').map((t) => t.trim()).filter(Boolean);
@@ -122,6 +159,8 @@ export default function AdminDocuments() {
   }
 
   const selectedDoc = docs.find((d) => d.id === selectedDocId);
+  const canManagePermissions = !!selectedDoc && (selectedDoc.owner_id === currentUser?.id || isOwner);
+  const ownerName = selectedDoc ? (users.find((u) => u.id === selectedDoc.owner_id)?.display_name || '未知用户') : '';
 
   return (
     <div className="two-col">
@@ -133,7 +172,7 @@ export default function AdminDocuments() {
           <div
             key={d.id}
             className={`list-item ${d.id === selectedDocId ? 'active' : ''}`}
-            onClick={() => { setSelectedDocId(d.id); setConfirmingDelete(false); setDeleteError(''); setVersionError(''); }}
+            onClick={() => { setSelectedDocId(d.id); setConfirmingDelete(false); setDeleteError(''); setVersionError(''); setApplyResult(''); }}
           >
             {d.title}
           </div>
@@ -172,10 +211,15 @@ export default function AdminDocuments() {
 
           <div className="panel-section">
             <div className="section-label">分组权限</div>
+            {!canManagePermissions && (
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
+                此文档由 {ownerName} 上传，只有上传人或站长可以设置分享范围（你可以查看，但不能修改）。
+              </div>
+            )}
             {groups.map((g) => (
               <div key={g.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
                 <span className="name">{g.name}</span>
-                <select value={groupLevels[g.id] || 'none'} onChange={(e) => setGroupLevel(g.id, e.target.value)}>
+                <select disabled={!canManagePermissions} value={groupLevels[g.id] || 'none'} onChange={(e) => setGroupLevel(g.id, e.target.value)}>
                   <option value="none">不可见</option>
                   <option value="view">仅查看</option>
                   <option value="download">可下载</option>
@@ -189,7 +233,7 @@ export default function AdminDocuments() {
             {users.map((u) => (
               <div key={u.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
                 <span className="name">{u.display_name}</span>
-                <select value={userOverrides[u.id] || 'none'} onChange={(e) => setUserOverride(u.id, e.target.value)}>
+                <select disabled={!canManagePermissions} value={userOverrides[u.id] || 'none'} onChange={(e) => setUserOverride(u.id, e.target.value)}>
                   <option value="none">无覆盖（跟随分组）</option>
                   <option value="view">仅查看</option>
                   <option value="download">可下载</option>
@@ -197,6 +241,27 @@ export default function AdminDocuments() {
                 </select>
               </div>
             ))}
+          </div>
+
+          <div className="panel-section">
+            <div className="section-label">所属文件夹</div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <select value={selectedDoc.folder_id || ''} onChange={(e) => setFolder(e.target.value)}>
+                <option value="">未分类</option>
+                {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+              {selectedDoc.folder_id && (
+                <button className="btn" disabled={!canManagePermissions || applyingTemplate} onClick={handleApplyTemplate} style={{ flexShrink: 0 }}>
+                  {applyingTemplate ? '套用中…' : '套用文件夹权限'}
+                </button>
+              )}
+            </div>
+            {selectedDoc.folder_id && !canManagePermissions && (
+              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
+                只有此文档的上传人或站长能套用文件夹权限模板。
+              </div>
+            )}
+            {applyResult && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{applyResult}</div>}
           </div>
 
           <div className="panel-section">

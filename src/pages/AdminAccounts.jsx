@@ -34,12 +34,17 @@ export default function AdminAccounts() {
   const [nameError, setNameError] = useState('');
   const [savingRole, setSavingRole] = useState(false);
   const [roleError, setRoleError] = useState('');
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkPending, setBulkPending] = useState(false);
+  const [bulkReason, setBulkReason] = useState('');
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkError, setBulkError] = useState('');
+  const [bulkResult, setBulkResult] = useState('');
 
   async function load() {
     const { data } = await supabase.from('profiles').select('*').order('display_name');
-    const others = (data || []).filter((u) => u.id !== currentUser?.id);
-    setUsers(others);
-    if (others.length && !selectedUserId) setSelectedUserId(others[0].id);
+    setUsers(data || []);
+    if (data?.length && !selectedUserId) setSelectedUserId(data[0].id);
   }
 
   useEffect(() => { load(); }, [currentUser]);
@@ -94,6 +99,45 @@ export default function AdminAccounts() {
     setUsers((prev) => prev.map((u) => (u.id === selectedUserId ? { ...u, display_name: nameDraft.trim() } : u)));
   }
 
+  function toggleSelect(id) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function handleBulkSuspend() {
+    if (!bulkReason.trim()) { setBulkError('请填写理由'); return; }
+    const reason = bulkReason.trim();
+    const targets = users.filter((u) => selectedIds.has(u.id) && u.account_status === 'active');
+    setBulkBusy(true);
+    setBulkError('');
+    setBulkResult('');
+    let okCount = 0;
+    const failed = [];
+    for (const u of targets) {
+      const { error } = await supabase.functions.invoke('manage-account', {
+        body: { userId: u.id, action: 'suspend', reason },
+      });
+      if (error) { failed.push(`${u.display_name}：${await functionErrorMessage(error)}`); continue; }
+      okCount++;
+      await logAction(null, 'account_status_changed', { targetUserId: u.id, action: 'suspend', reason });
+    }
+    setUsers((prev) => prev.map((u) => (
+      selectedIds.has(u.id) && u.account_status === 'active' && !failed.some((f) => f.startsWith(u.display_name + '：'))
+        ? { ...u, account_status: 'suspended', status_reason: reason, status_changed_at: new Date().toISOString() }
+        : u
+    )));
+    setBulkBusy(false);
+    setBulkResult(`成功暂停 ${okCount} 个账号${failed.length ? '；失败：' + failed.join('；') : ''}`);
+    if (!failed.length) {
+      setSelectedIds(new Set());
+      setBulkPending(false);
+      setBulkReason('');
+    }
+  }
+
   async function handleToggleAdmin(targetUser) {
     setSavingRole(true);
     setRoleError('');
@@ -109,8 +153,9 @@ export default function AdminAccounts() {
   return (
     <div className="two-col">
       <div className="card" style={{ padding: 0 }}>
-        <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--muted)', borderBottom: '1px solid var(--border)' }}>
-          成员（{users.length}）
+        <div style={{ padding: '8px 12px', fontSize: 11, color: 'var(--muted)', borderBottom: '1px solid var(--border)', display: 'flex', justifyContent: 'space-between' }}>
+          <span>成员（{users.length}）</span>
+          {selectedIds.size > 0 && <span>已选 {selectedIds.size}</span>}
         </div>
         {users.map((u) => (
           <div
@@ -118,11 +163,40 @@ export default function AdminAccounts() {
             className={`list-item ${u.id === selectedUserId ? 'active' : ''}`}
             onClick={() => { setSelectedUserId(u.id); cancelAction(); setError(''); setNameError(''); setRoleError(''); }}
           >
+            {u.account_status === 'active' && u.id !== currentUser?.id && (
+              <input
+                type="checkbox"
+                checked={selectedIds.has(u.id)}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggleSelect(u.id)}
+                style={{ width: 'auto', marginRight: 8 }}
+              />
+            )}
             {u.display_name}
             <RolePill user={u} />
             <StatusPill status={u.account_status} />
           </div>
         ))}
+        {selectedIds.size > 0 && (
+          <div style={{ padding: 12, borderTop: '1px solid var(--border)' }}>
+            {bulkPending ? (
+              <ReasonBox
+                label={`批量暂停理由（将应用于选中的 ${selectedIds.size} 个账号，必填）`}
+                reason={bulkReason}
+                setReason={setBulkReason}
+                busy={bulkBusy}
+                onConfirm={handleBulkSuspend}
+                onCancel={() => { setBulkPending(false); setBulkReason(''); setBulkError(''); }}
+              />
+            ) : (
+              <button className="btn btn-danger" onClick={() => setBulkPending(true)}>
+                批量暂停选中账号（{selectedIds.size}）
+              </button>
+            )}
+            {bulkError && <div className="error-text" style={{ marginTop: 8 }}>{bulkError}</div>}
+            {bulkResult && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 8 }}>{bulkResult}</div>}
+          </div>
+        )}
       </div>
 
       {selectedUser && (
@@ -144,7 +218,7 @@ export default function AdminAccounts() {
             {nameError && <div className="error-text" style={{ marginTop: 8 }}>{nameError}</div>}
           </div>
 
-          {isOwner && (
+          {isOwner && selectedUser.id !== currentUser?.id && (
             <div className="card" style={{ marginBottom: 20 }}>
               <div className="section-label">管理员权限</div>
               <button className="btn" disabled={savingRole} onClick={() => handleToggleAdmin(selectedUser)}>
@@ -154,59 +228,65 @@ export default function AdminAccounts() {
             </div>
           )}
 
-          <div className="card" style={{ marginBottom: 20 }}>
-            <div className="section-label">
-              当前状态
-            </div>
-            <div style={{ fontSize: 14, marginBottom: 8 }}>{STATUS_LABEL[selectedUser.account_status]}</div>
-            {selectedUser.status_changed_at && (
-              <div style={{ fontSize: 12, color: 'var(--muted)' }}>
-                上次变更：{formatDateTime(selectedUser.status_changed_at)}
-                {selectedUser.status_reason && <> · 理由：{selectedUser.status_reason}</>}
-              </div>
-            )}
-          </div>
-
-          <div className="card">
-            {selectedUser.account_status === 'active' && (
-              pendingAction === 'suspend' ? (
-                <ReasonBox
-                  label="暂停理由（必填）"
-                  reason={reason}
-                  setReason={setReason}
-                  busy={busy}
-                  onConfirm={confirmWithReason}
-                  onCancel={cancelAction}
-                />
-              ) : (
-                <button className="btn btn-danger" onClick={() => startAction('suspend')}>暂停</button>
-              )
-            )}
-
-            {selectedUser.account_status === 'suspended' && (
-              pendingAction === 'terminate' ? (
-                <ReasonBox
-                  label="销号理由（必填）"
-                  reason={reason}
-                  setReason={setReason}
-                  busy={busy}
-                  onConfirm={confirmWithReason}
-                  onCancel={cancelAction}
-                />
-              ) : (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <button className="btn btn-primary" disabled={busy} onClick={() => runAction('reinstate', selectedUser.id)}>恢复正常</button>
-                  <button className="btn btn-danger" onClick={() => startAction('terminate')}>销号</button>
+          {selectedUser.id === currentUser?.id ? (
+            <div style={{ fontSize: 12, color: 'var(--muted)' }}>无法对自己的账号执行状态操作。</div>
+          ) : (
+            <>
+              <div className="card" style={{ marginBottom: 20 }}>
+                <div className="section-label">
+                  当前状态
                 </div>
-              )
-            )}
+                <div style={{ fontSize: 14, marginBottom: 8 }}>{STATUS_LABEL[selectedUser.account_status]}</div>
+                {selectedUser.status_changed_at && (
+                  <div style={{ fontSize: 12, color: 'var(--muted)' }}>
+                    上次变更：{formatDateTime(selectedUser.status_changed_at)}
+                    {selectedUser.status_reason && <> · 理由：{selectedUser.status_reason}</>}
+                  </div>
+                )}
+              </div>
 
-            {selectedUser.account_status === 'terminated' && (
-              <button className="btn" disabled={busy} onClick={() => runAction('lift_termination', selectedUser.id)}>撤销销号</button>
-            )}
+              <div className="card">
+                {selectedUser.account_status === 'active' && (
+                  pendingAction === 'suspend' ? (
+                    <ReasonBox
+                      label="暂停理由（必填）"
+                      reason={reason}
+                      setReason={setReason}
+                      busy={busy}
+                      onConfirm={confirmWithReason}
+                      onCancel={cancelAction}
+                    />
+                  ) : (
+                    <button className="btn btn-danger" onClick={() => startAction('suspend')}>暂停</button>
+                  )
+                )}
 
-            {error && <div className="error-text" style={{ marginTop: 8 }}>{error}</div>}
-          </div>
+                {selectedUser.account_status === 'suspended' && (
+                  pendingAction === 'terminate' ? (
+                    <ReasonBox
+                      label="销号理由（必填）"
+                      reason={reason}
+                      setReason={setReason}
+                      busy={busy}
+                      onConfirm={confirmWithReason}
+                      onCancel={cancelAction}
+                    />
+                  ) : (
+                    <div style={{ display: 'flex', gap: 8 }}>
+                      <button className="btn btn-primary" disabled={busy} onClick={() => runAction('reinstate', selectedUser.id)}>恢复正常</button>
+                      <button className="btn btn-danger" onClick={() => startAction('terminate')}>销号</button>
+                    </div>
+                  )
+                )}
+
+                {selectedUser.account_status === 'terminated' && (
+                  <button className="btn" disabled={busy} onClick={() => runAction('lift_termination', selectedUser.id)}>撤销销号</button>
+                )}
+
+                {error && <div className="error-text" style={{ marginTop: 8 }}>{error}</div>}
+              </div>
+            </>
+          )}
         </div>
       )}
     </div>

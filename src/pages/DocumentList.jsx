@@ -17,15 +17,18 @@ export default function DocumentList() {
   const [error, setError] = useState('');
   const [query, setQuery] = useState('');
   const [activeTag, setActiveTag] = useState(null);
+  const [activeFolder, setActiveFolder] = useState(null); // null = 全部, 'unassigned' = 未分类, 否则是 folder id
+  const [folders, setFolders] = useState([]);
 
   async function load() {
     // RLS 已经在数据库层过滤好了：这里查出来的就是当前用户能看到的全部文档
-    const { data, error } = await supabase
-      .from('documents')
-      .select('*')
-      .order('updated_at', { ascending: false });
+    const [{ data, error }, { data: f }] = await Promise.all([
+      supabase.from('documents').select('*').order('updated_at', { ascending: false }),
+      supabase.from('folders').select('id, name'),
+    ]);
     if (error) setError(error.message);
     else setDocs(data);
+    setFolders(f || []);
   }
 
   useEffect(() => { load(); }, []);
@@ -49,10 +52,14 @@ export default function DocumentList() {
   if (docs === null) return null;
 
   const allTags = [...new Set(docs.flatMap((d) => d.tags || []))].sort();
+  const folderIdsInDocs = new Set(docs.map((d) => d.folder_id).filter(Boolean));
+  const foldersInDocs = folders.filter((f) => folderIdsInDocs.has(f.id));
+  const hasUnassigned = docs.some((d) => !d.folder_id);
   const filteredDocs = docs.filter((d) => {
     const matchesQuery = !query || d.title.toLowerCase().includes(query.toLowerCase());
     const matchesTag = !activeTag || (d.tags || []).includes(activeTag);
-    return matchesQuery && matchesTag;
+    const matchesFolder = !activeFolder || (activeFolder === 'unassigned' ? !d.folder_id : d.folder_id === activeFolder);
+    return matchesQuery && matchesTag && matchesFolder;
   });
 
   return (
@@ -75,8 +82,38 @@ export default function DocumentList() {
             placeholder="搜索文档名称…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            style={{ borderRadius: 999, marginBottom: allTags.length ? 10 : 0 }}
+            style={{ borderRadius: 999, marginBottom: (foldersInDocs.length || allTags.length) ? 10 : 0 }}
           />
+          {(foldersInDocs.length > 0 || hasUnassigned) && (
+            <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginBottom: allTags.length ? 10 : 0 }}>
+              <span
+                className="pill"
+                style={{ cursor: 'pointer', ...(activeFolder === null ? { background: 'var(--hero-tint)', color: 'var(--hero-dark)' } : {}) }}
+                onClick={() => setActiveFolder(null)}
+              >
+                全部文件夹
+              </span>
+              {foldersInDocs.map((f) => (
+                <span
+                  key={f.id}
+                  className="pill"
+                  style={{ cursor: 'pointer', ...(activeFolder === f.id ? { background: 'var(--hero-tint)', color: 'var(--hero-dark)' } : {}) }}
+                  onClick={() => setActiveFolder(f.id)}
+                >
+                  {f.name}
+                </span>
+              ))}
+              {hasUnassigned && (
+                <span
+                  className="pill"
+                  style={{ cursor: 'pointer', ...(activeFolder === 'unassigned' ? { background: 'var(--hero-tint)', color: 'var(--hero-dark)' } : {}) }}
+                  onClick={() => setActiveFolder('unassigned')}
+                >
+                  未分类
+                </span>
+              )}
+            </div>
+          )}
           {allTags.length > 0 && (
             <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
               <span

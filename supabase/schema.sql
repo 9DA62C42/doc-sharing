@@ -44,6 +44,16 @@ create table public.group_members (
   primary key (group_id, user_id)
 );
 
+-- 单层文件夹（不支持嵌套）。文件夹自带一套默认权限模板（见下方
+-- folder_group_access / folder_user_access），文档"套用"后才会实际生效，
+-- 套用是一次性复制，之后文件夹模板再变不会影响已经套用过的文档。
+create table public.folders (
+  id uuid primary key default gen_random_uuid(),
+  name text not null unique,
+  owner_id uuid references public.profiles(id) on delete set null,
+  created_at timestamptz not null default now()
+);
+
 -- 文档
 create table public.documents (
   id uuid primary key default gen_random_uuid(),
@@ -52,6 +62,7 @@ create table public.documents (
   file_type text,                   -- pdf / docx / xlsx / png ...
   size_bytes bigint,
   owner_id uuid not null references public.profiles(id) on delete set null,
+  folder_id uuid references public.folders(id) on delete set null,
   -- 分享人可以在此写明该文档的特殊分享条件（例如 Skill 类工具型文档的署名要求、
   -- .tex 源文件的再分发规则等），会展示在文档查看/下载页面上；为空则不展示。
   special_conditions text,
@@ -91,6 +102,22 @@ create table public.document_user_access (
   user_id uuid not null references public.profiles(id) on delete cascade,
   level public.access_level not null default 'view',
   primary key (document_id, user_id)
+);
+
+-- 文件夹的默认权限模板，形状和 document_group_access / document_user_access 一样，
+-- 只在文档"套用"时被复制一次，本身不参与权限判断（has_document_access 不查这两张表）。
+create table public.folder_group_access (
+  folder_id uuid not null references public.folders(id) on delete cascade,
+  group_id uuid not null references public.groups(id) on delete cascade,
+  level public.access_level not null default 'view',
+  primary key (folder_id, group_id)
+);
+
+create table public.folder_user_access (
+  folder_id uuid not null references public.folders(id) on delete cascade,
+  user_id uuid not null references public.profiles(id) on delete cascade,
+  level public.access_level not null default 'view',
+  primary key (folder_id, user_id)
 );
 
 -- 访问日志
@@ -179,6 +206,9 @@ alter table public.document_user_access enable row level security;
 alter table public.access_logs enable row level security;
 alter table public.policy_agreements enable row level security;
 alter table public.document_versions enable row level security;
+alter table public.folders enable row level security;
+alter table public.folder_group_access enable row level security;
+alter table public.folder_user_access enable row level security;
 
 -- profiles：所有登录用户可以看到全部成员（10人小规模，方便选人）。
 -- 管理员可以改成员的显示名称，但只有网站拥有人（is_owner）能改 is_admin/is_owner
@@ -211,6 +241,26 @@ create policy "group_members_select_all" on public.group_members
 create policy "group_members_write_admin" on public.group_members
   for all using (exists (select 1 from profiles where id = auth.uid() and is_admin));
 
+-- folders：登录用户都能看（上传时选文件夹、列表页按文件夹筛选都要读）；
+-- 建文件夹管理员就行；改名/删除只有创建人或站长能做（和文档同一套规则）。
+create policy "folders_select_all" on public.folders
+  for select using (auth.uid() is not null);
+create policy "folders_insert_admin" on public.folders
+  for insert with check (
+    owner_id = auth.uid()
+    and exists (select 1 from profiles where id = auth.uid() and is_admin)
+  );
+create policy "folders_update_owner_or_site_owner" on public.folders
+  for update using (
+    owner_id = auth.uid()
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+create policy "folders_delete_owner_or_site_owner" on public.folders
+  for delete using (
+    owner_id = auth.uid()
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+
 -- documents：只能看到自己有权限的文档（通过函数判断），管理员/owner 可写
 create policy "documents_select_accessible" on public.documents
   for select using (public.has_document_access(id, auth.uid(), 'view'));
@@ -231,11 +281,69 @@ create policy "documents_delete_owner_or_admin" on public.documents
     or exists (select 1 from profiles where id = auth.uid() and is_admin)
   );
 
--- document_group_access / document_user_access：只有管理员能读写（权限配置本身是敏感信息）
-create policy "dga_admin_all" on public.document_group_access
-  for all using (exists (select 1 from profiles where id = auth.uid() and is_admin));
-create policy "dua_admin_all" on public.document_user_access
-  for all using (exists (select 1 from profiles where id = auth.uid() and is_admin));
+-- document_group_access / document_user_access：任何管理员都能查看（审计用），
+-- 但只有该文档的上传人（owner_id）或站长能设置分享范围，避免管理员之间越权改别人上传的文档。
+create policy "dga_select_admin" on public.document_group_access
+  for select using (exists (select 1 from profiles where id = auth.uid() and is_admin));
+create policy "dua_select_admin" on public.document_user_access
+  for select using (exists (select 1 from profiles where id = auth.uid() and is_admin));
+
+create policy "dga_insert_owner_or_site_owner" on public.document_group_access
+  for insert with check (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+create policy "dga_update_owner_or_site_owner" on public.document_group_access
+  for update using (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+create policy "dga_delete_owner_or_site_owner" on public.document_group_access
+  for delete using (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+
+create policy "dua_insert_owner_or_site_owner" on public.document_user_access
+  for insert with check (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+create policy "dua_update_owner_or_site_owner" on public.document_user_access
+  for update using (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+create policy "dua_delete_owner_or_site_owner" on public.document_user_access
+  for delete using (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+
+-- folder_group_access / folder_user_access：任何管理员可查看，只有该文件夹的创建人或站长能改模板本身。
+create policy "fga_select_admin" on public.folder_group_access
+  for select using (exists (select 1 from profiles where id = auth.uid() and is_admin));
+create policy "fua_select_admin" on public.folder_user_access
+  for select using (exists (select 1 from profiles where id = auth.uid() and is_admin));
+
+create policy "fga_write_owner_or_site_owner" on public.folder_group_access
+  for all using (
+    exists (select 1 from folders f where f.id = folder_id and f.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  )
+  with check (
+    exists (select 1 from folders f where f.id = folder_id and f.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+create policy "fua_write_owner_or_site_owner" on public.folder_user_access
+  for all using (
+    exists (select 1 from folders f where f.id = folder_id and f.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  )
+  with check (
+    exists (select 1 from folders f where f.id = folder_id and f.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
 
 -- access_logs：管理员看全部；普通用户只能看自己触发的记录；任何登录用户都能写入自己的日志
 create policy "logs_select_own_or_admin" on public.access_logs

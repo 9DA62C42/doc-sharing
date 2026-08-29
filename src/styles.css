@@ -77,7 +77,7 @@ h1, h2, h3 {
 .sidebar-footer-row { display: flex; align-items: center; justify-content: space-between; }
 .sidebar-footer .user-name { color: var(--muted); }
 
-.main-content { flex: 1; min-width: 0; max-width: 960px; padding: 28px 32px 80px; }
+.main-content { flex: 1; min-width: 0; padding: 28px 40px 80px; }
 
 .theme-toggle {
   border: 1px solid var(--border-strong); background: transparent; color: var(--text);

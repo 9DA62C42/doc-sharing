@@ -76,6 +76,31 @@ export async function listVersions(documentId) {
   return data || [];
 }
 
+// 把文件夹的默认权限模板"套用一次"到某份文档上：复制模板当前的分组权限/个人覆盖，
+// upsert 进这份文档自己的 document_group_access / document_user_access。
+// 之后文件夹模板再变，不会影响这份已经套用过的文档——该文档的权限记录就是它自己的了。
+export async function applyFolderTemplate(documentId, folderId) {
+  const [{ data: groupTemplate }, { data: userTemplate }] = await Promise.all([
+    supabase.from('folder_group_access').select('group_id, level').eq('folder_id', folderId),
+    supabase.from('folder_user_access').select('user_id, level').eq('folder_id', folderId),
+  ]);
+
+  if (groupTemplate?.length) {
+    const { error } = await supabase.from('document_group_access').upsert(
+      groupTemplate.map((row) => ({ document_id: documentId, group_id: row.group_id, level: row.level }))
+    );
+    if (error) throw error;
+  }
+  if (userTemplate?.length) {
+    const { error } = await supabase.from('document_user_access').upsert(
+      userTemplate.map((row) => ({ document_id: documentId, user_id: row.user_id, level: row.level }))
+    );
+    if (error) throw error;
+  }
+
+  await logAction(documentId, 'permission_changed', { type: 'apply_folder_template', folderId });
+}
+
 export async function uploadDocument(file, title) {
   const { data: userData } = await supabase.auth.getUser();
   const ownerId = userData?.user?.id;
