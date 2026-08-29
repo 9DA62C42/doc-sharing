@@ -23,7 +23,7 @@ export default function Login() {
 
   return (
     <div className="card" style={{ maxWidth: 360, margin: '60px auto' }}>
-      <h2 style={{ marginTop: 0, fontFamily: 'var(--font-serif)', fontStyle: 'italic' }}>登录</h2>
+      <h2 style={{ marginTop: 0, fontFamily: 'var(--font-serif)' }}>登录</h2>
       <form onSubmit={handleSubmit}>
         <div style={{ marginBottom: 14 }}>
           <label>邮箱</label>

@@ -49,7 +49,7 @@ export default function DocumentDetail() {
       <Link to="/" style={{ fontSize: 13 }}>← 返回文档列表</Link>
       <div className="card" style={{ marginTop: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <h2 style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', margin: 0 }}>{doc.title}</h2>
+          <h2 style={{ fontFamily: 'var(--font-serif)', margin: 0 }}>{doc.title}</h2>
           {canDownload ? (
             <button className="btn btn-primary" onClick={handleDownload}>下载</button>
           ) : (

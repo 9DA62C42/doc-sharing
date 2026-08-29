@@ -130,7 +130,7 @@ export default function AdminUsers() {
 
       {selectedUser && (
         <div>
-          <h3 style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', marginTop: 0 }}>{selectedUser.display_name}</h3>
+          <h3 style={{ fontFamily: 'var(--font-serif)', marginTop: 0 }}>{selectedUser.display_name}</h3>
 
           <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
             所属分组（决定默认可见范围）

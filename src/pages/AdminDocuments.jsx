@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../supabaseClient';
-import { logAction } from '../lib/documents';
+import { logAction, deleteDocument } from '../lib/documents';
 
 export default function AdminDocuments() {
   const [docs, setDocs] = useState([]);
@@ -11,11 +11,14 @@ export default function AdminDocuments() {
   const [userOverrides, setUserOverrides] = useState({}); // userId -> level | 'none'
   const [specialConditions, setSpecialConditions] = useState('');
   const [savingConditions, setSavingConditions] = useState(false);
+  const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState('');
 
   useEffect(() => {
     (async () => {
       const [{ data: d }, { data: g }, { data: u }] = await Promise.all([
-        supabase.from('documents').select('id, title, special_conditions').order('title'),
+        supabase.from('documents').select('id, title, special_conditions, storage_path').order('title'),
         supabase.from('groups').select('*').order('name'),
         supabase.from('profiles').select('*').order('display_name'),
       ]);
@@ -40,6 +43,21 @@ export default function AdminDocuments() {
       setSpecialConditions(docs.find((d) => d.id === selectedDocId)?.special_conditions || '');
     })();
   }, [selectedDocId]);
+
+  async function handleDelete() {
+    setDeleting(true);
+    setDeleteError('');
+    try {
+      await deleteDocument(selectedDoc);
+      setDocs((prev) => prev.filter((d) => d.id !== selectedDocId));
+      setSelectedDocId(null);
+      setConfirmingDelete(false);
+    } catch (err) {
+      setDeleteError(err.message);
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   async function saveSpecialConditions() {
     setSavingConditions(true);
@@ -80,7 +98,11 @@ export default function AdminDocuments() {
           文档（{docs.length}）
         </div>
         {docs.map((d) => (
-          <div key={d.id} className={`list-item ${d.id === selectedDocId ? 'active' : ''}`} onClick={() => setSelectedDocId(d.id)}>
+          <div
+            key={d.id}
+            className={`list-item ${d.id === selectedDocId ? 'active' : ''}`}
+            onClick={() => { setSelectedDocId(d.id); setConfirmingDelete(false); setDeleteError(''); }}
+          >
             {d.title}
           </div>
         ))}
@@ -88,7 +110,21 @@ export default function AdminDocuments() {
 
       {selectedDoc && (
         <div>
-          <h3 style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', marginTop: 0 }}>{selectedDoc.title}</h3>
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline', marginBottom: 8 }}>
+            <h3 style={{ fontFamily: 'var(--font-serif)', margin: 0 }}>{selectedDoc.title}</h3>
+            {confirmingDelete ? (
+              <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                <span style={{ fontSize: 12, color: 'var(--muted)' }}>确认删除？不可恢复</span>
+                <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
+                  {deleting ? '删除中…' : '确认删除'}
+                </button>
+                <button className="btn" disabled={deleting} onClick={() => setConfirmingDelete(false)}>取消</button>
+              </div>
+            ) : (
+              <button className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>删除文档</button>
+            )}
+          </div>
+          {deleteError && <div className="error-text" style={{ marginBottom: 12 }}>{deleteError}</div>}
 
           <div style={{ fontSize: 12, color: 'var(--muted)', textTransform: 'uppercase', letterSpacing: '0.04em', marginBottom: 6 }}>
             分组权限

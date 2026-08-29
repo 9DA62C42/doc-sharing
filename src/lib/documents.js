@@ -21,6 +21,16 @@ export async function logAction(documentId, action, detail = null) {
   });
 }
 
+export async function deleteDocument(doc) {
+  const { error: storageError } = await supabase.storage.from('documents').remove([doc.storage_path]);
+  if (storageError) throw storageError;
+  const { error: deleteError } = await supabase.from('documents').delete().eq('id', doc.id);
+  if (deleteError) throw deleteError;
+  // 文档行已经删掉了，access_logs.document_id 会因外键约束拒绝指向一个不存在的文档，
+  // 所以这条记录用 document_id: null，把文档信息放进 detail 里留痕。
+  await logAction(null, 'delete', { documentId: doc.id, title: doc.title });
+}
+
 export async function uploadDocument(file, title) {
   const { data: userData } = await supabase.auth.getUser();
   const ownerId = userData?.user?.id;

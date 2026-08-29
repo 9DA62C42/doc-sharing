@@ -89,7 +89,7 @@ export default function AdminAccounts() {
 
       {selectedUser && (
         <div>
-          <h3 style={{ fontFamily: 'var(--font-serif)', fontStyle: 'italic', marginTop: 0 }}>
+          <h3 style={{ fontFamily: 'var(--font-serif)', marginTop: 0 }}>
             {selectedUser.display_name}
             <StatusPill status={selectedUser.account_status} />
           </h3>
