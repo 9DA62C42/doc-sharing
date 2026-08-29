@@ -182,35 +182,46 @@ export default function AdminDocuments() {
       {selectedDoc && (
         <div className="card">
           <div className="panel-section" style={{ marginTop: 0, paddingTop: 0 }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-              <h3 style={{ margin: 0 }}>
-                {selectedDoc.title}
-                <span className="pill" style={{ marginLeft: 8 }}>v{selectedDoc.current_version}</span>
-              </h3>
-              {confirmingDelete ? (
-                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-                  <span style={{ fontSize: 12, color: 'var(--muted)' }}>确认删除？不可恢复</span>
-                  <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
-                    {deleting ? '删除中…' : '确认删除'}
-                  </button>
-                  <button className="btn" disabled={deleting} onClick={() => setConfirmingDelete(false)}>取消</button>
-                </div>
-              ) : (
-                <div style={{ display: 'flex', gap: 8 }}>
-                  <label className="btn" style={{ cursor: 'pointer' }}>
-                    {uploadingVersion ? '上传中…' : '上传新版本'}
-                    <input type="file" style={{ display: 'none' }} onChange={handleUploadVersion} disabled={uploadingVersion} />
-                  </label>
-                  <button className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>删除文档</button>
-                </div>
-              )}
-            </div>
-            {deleteError && <div className="error-text" style={{ marginTop: 8 }}>{deleteError}</div>}
-            {versionError && <div className="error-text" style={{ marginTop: 8 }}>{versionError}</div>}
+            <h3 style={{ margin: 0 }}>
+              {selectedDoc.title}
+              <span className="pill" style={{ marginLeft: 8 }}>v{selectedDoc.current_version}</span>
+            </h3>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>上传人：{ownerName}</div>
           </div>
 
-          {canManagePermissions ? (
+          {!canManagePermissions ? (
+            <div className="panel-section">
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                这份文档由 {ownerName} 上传，只有上传人或站长能查看和管理它——分享范围、标签、特殊分享条件、
+                所属文件夹、删除、上传新版本都不对你开放。
+              </div>
+            </div>
+          ) : (
             <>
+              <div className="panel-section">
+                <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8 }}>
+                  {confirmingDelete ? (
+                    <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                      <span style={{ fontSize: 12, color: 'var(--muted)' }}>确认删除？不可恢复</span>
+                      <button className="btn btn-danger" disabled={deleting} onClick={handleDelete}>
+                        {deleting ? '删除中…' : '确认删除'}
+                      </button>
+                      <button className="btn" disabled={deleting} onClick={() => setConfirmingDelete(false)}>取消</button>
+                    </div>
+                  ) : (
+                    <>
+                      <label className="btn" style={{ cursor: 'pointer' }}>
+                        {uploadingVersion ? '上传中…' : '上传新版本'}
+                        <input type="file" style={{ display: 'none' }} onChange={handleUploadVersion} disabled={uploadingVersion} />
+                      </label>
+                      <button className="btn btn-danger" onClick={() => setConfirmingDelete(true)}>删除文档</button>
+                    </>
+                  )}
+                </div>
+                {deleteError && <div className="error-text" style={{ marginTop: 8 }}>{deleteError}</div>}
+                {versionError && <div className="error-text" style={{ marginTop: 8 }}>{versionError}</div>}
+              </div>
+
               <div className="panel-section">
                 <div className="section-label">分组权限</div>
                 {groups.map((g) => (
@@ -239,64 +250,52 @@ export default function AdminDocuments() {
                   </div>
                 ))}
               </div>
-            </>
-          ) : (
-            <div className="panel-section">
-              <div className="section-label">分享范围</div>
-              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
-                此文档由 {ownerName} 上传，只有上传人或站长可以查看和设置分享范围。
-              </div>
-            </div>
-          )}
 
-          <div className="panel-section">
-            <div className="section-label">所属文件夹</div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <select value={selectedDoc.folder_id || ''} onChange={(e) => setFolder(e.target.value)}>
-                <option value="">未分类</option>
-                {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </select>
-              {selectedDoc.folder_id && (
-                <button className="btn" disabled={!canManagePermissions || applyingTemplate} onClick={handleApplyTemplate} style={{ flexShrink: 0 }}>
-                  {applyingTemplate ? '套用中…' : '套用文件夹权限'}
+              <div className="panel-section">
+                <div className="section-label">所属文件夹</div>
+                <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+                  <select value={selectedDoc.folder_id || ''} onChange={(e) => setFolder(e.target.value)}>
+                    <option value="">未分类</option>
+                    {folders.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+                  </select>
+                  {selectedDoc.folder_id && (
+                    <button className="btn" disabled={applyingTemplate} onClick={handleApplyTemplate} style={{ flexShrink: 0 }}>
+                      {applyingTemplate ? '套用中…' : '套用文件夹权限'}
+                    </button>
+                  )}
+                </div>
+                {applyResult && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{applyResult}</div>}
+              </div>
+
+              <div className="panel-section">
+                <div className="section-label">标签（逗号分隔，用于文档列表页筛选）</div>
+                <div style={{ display: 'flex', gap: 8 }}>
+                  <input type="text" placeholder="例如：财务, 合同" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
+                  <button className="btn" disabled={savingTags} onClick={saveTags} style={{ flexShrink: 0 }}>
+                    {savingTags ? '保存中…' : '保存'}
+                  </button>
+                </div>
+              </div>
+
+              <div className="panel-section">
+                <div className="section-label">特殊分享条件（展示在该文档的查看/下载页面上，留空则不展示）</div>
+                <textarea
+                  value={specialConditions}
+                  onChange={(e) => setSpecialConditions(e.target.value)}
+                  placeholder="例如：本文档为 AI Skill，二次分享前需征得同意，输出成果需在文末署名「XXX」；或：本 .tex 源文件仅供本人编译使用，不得再分发源文件本身。"
+                  rows={4}
+                  style={{
+                    width: '100%', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '8px 10px',
+                    border: '1px solid var(--border-strong)', borderRadius: 'var(--radius)',
+                    background: 'var(--surface)', color: 'var(--text)', resize: 'vertical',
+                  }}
+                />
+                <button className="btn btn-primary" style={{ marginTop: 10 }} disabled={savingConditions} onClick={saveSpecialConditions}>
+                  {savingConditions ? '保存中…' : '保存'}
                 </button>
-              )}
-            </div>
-            {selectedDoc.folder_id && !canManagePermissions && (
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>
-                只有此文档的上传人或站长能套用文件夹权限模板。
               </div>
-            )}
-            {applyResult && <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 6 }}>{applyResult}</div>}
-          </div>
-
-          <div className="panel-section">
-            <div className="section-label">标签（逗号分隔，用于文档列表页筛选）</div>
-            <div style={{ display: 'flex', gap: 8 }}>
-              <input type="text" placeholder="例如：财务, 合同" value={tagsInput} onChange={(e) => setTagsInput(e.target.value)} />
-              <button className="btn" disabled={savingTags} onClick={saveTags} style={{ flexShrink: 0 }}>
-                {savingTags ? '保存中…' : '保存'}
-              </button>
-            </div>
-          </div>
-
-          <div className="panel-section">
-            <div className="section-label">特殊分享条件（展示在该文档的查看/下载页面上，留空则不展示）</div>
-            <textarea
-              value={specialConditions}
-              onChange={(e) => setSpecialConditions(e.target.value)}
-              placeholder="例如：本文档为 AI Skill，二次分享前需征得同意，输出成果需在文末署名「XXX」；或：本 .tex 源文件仅供本人编译使用，不得再分发源文件本身。"
-              rows={4}
-              style={{
-                width: '100%', fontFamily: 'var(--font-sans)', fontSize: 14, padding: '8px 10px',
-                border: '1px solid var(--border-strong)', borderRadius: 'var(--radius)',
-                background: 'var(--surface)', color: 'var(--text)', resize: 'vertical',
-              }}
-            />
-            <button className="btn btn-primary" style={{ marginTop: 10 }} disabled={savingConditions} onClick={saveSpecialConditions}>
-              {savingConditions ? '保存中…' : '保存'}
-            </button>
-          </div>
+            </>
+          )}
         </div>
       )}
     </div>

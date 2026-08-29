@@ -270,15 +270,16 @@ create policy "documents_insert_admin_only" on public.documents
     owner_id = auth.uid()
     and exists (select 1 from profiles where id = auth.uid() and is_admin)
   );
-create policy "documents_update_owner_or_admin" on public.documents
+-- 更新/删除文档（标签、特殊条件、文件夹归属、删除本身）：只有上传人或站长，任意管理员不行。
+create policy "documents_update_owner_or_site_owner" on public.documents
   for update using (
     owner_id = auth.uid()
-    or exists (select 1 from profiles where id = auth.uid() and is_admin)
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
   );
-create policy "documents_delete_owner_or_admin" on public.documents
+create policy "documents_delete_owner_or_site_owner" on public.documents
   for delete using (
     owner_id = auth.uid()
-    or exists (select 1 from profiles where id = auth.uid() and is_admin)
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
   );
 
 -- document_group_access / document_user_access：只有该文档的上传人（owner_id）或站长
@@ -371,11 +372,14 @@ create policy "policy_agreements_select_own_or_admin" on public.policy_agreement
 create policy "policy_agreements_insert_own" on public.policy_agreements
   for insert with check (user_id = auth.uid());
 
--- document_versions：能看这份文档的人就能看它的版本列表，只有管理员能写入新版本记录
+-- document_versions：能看这份文档的人就能看它的版本列表，只有该文档的上传人或站长能写入新版本记录
 create policy "document_versions_select_if_accessible" on public.document_versions
   for select using (public.has_document_access(document_id, auth.uid(), 'view'));
-create policy "document_versions_insert_admin_only" on public.document_versions
-  for insert with check (exists (select 1 from profiles where id = auth.uid() and is_admin));
+create policy "document_versions_insert_owner_or_site_owner" on public.document_versions
+  for insert with check (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
 
 -- ───────────────────────── 4. 新用户自动建 profile ─────────────────────────
 -- 管理员用 inviteUserByEmail 邀请新用户后，auth.users 会多一条记录，
@@ -413,21 +417,30 @@ create policy "storage_select_if_document_accessible" on storage.objects
     )
   );
 
-create policy "storage_insert_admin_only" on storage.objects
+-- 新建文档时先插入 documents 行（owner_id = 自己）再传文件，所以这条策略对正常上传
+-- 流程天然成立；同一条策略也管住了"上传新版本"——新版本文件写进的是已存在文档的文件夹，
+-- 只有该文档的上传人（或站长）能写，堵掉任意管理员绕过前端直接传文件的口子。
+create policy "storage_insert_owner_or_site_owner" on storage.objects
   for insert with check (
     bucket_id = 'documents'
-    and exists (select 1 from profiles where id = auth.uid() and is_admin)
-  );
-
-create policy "storage_delete_owner_or_admin" on storage.objects
-  for delete using (
-    bucket_id = 'documents'
     and (
-      exists (select 1 from profiles where id = auth.uid() and is_admin)
-      or exists (
+      exists (
         select 1 from documents
         where id = (storage.foldername(name))[1]::uuid and owner_id = auth.uid()
       )
+      or exists (select 1 from profiles where id = auth.uid() and is_owner)
+    )
+  );
+
+create policy "storage_delete_owner_or_site_owner" on storage.objects
+  for delete using (
+    bucket_id = 'documents'
+    and (
+      exists (
+        select 1 from documents
+        where id = (storage.foldername(name))[1]::uuid and owner_id = auth.uid()
+      )
+      or exists (select 1 from profiles where id = auth.uid() and is_owner)
     )
   );
 
