@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { supabase, functionErrorMessage } from '../supabaseClient';
+import { useAuth } from '../lib/AuthContext.jsx';
 
 const ACTION_LABEL = {
   view: '查看',
@@ -16,6 +17,7 @@ function csvEscape(value) {
 }
 
 export default function AdminLogs() {
+  const { isOwner } = useAuth();
   const [logs, setLogs] = useState(null);
   const [users, setUsers] = useState([]);
   const [userFilter, setUserFilter] = useState('all');
@@ -81,6 +83,11 @@ export default function AdminLogs() {
 
   return (
     <div>
+      {!isOwner && (
+        <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 12 }}>
+          你看到的是范围受限的日志：自己的操作记录，以及涉及你上传文档的记录。完整日志只有站长能看。
+        </div>
+      )}
       <div className="card" style={{ marginBottom: 16, display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
         <div style={{ flex: '1 1 160px' }}>
           <label>按用户筛选</label>

@@ -209,39 +209,45 @@ export default function AdminDocuments() {
             {versionError && <div className="error-text" style={{ marginTop: 8 }}>{versionError}</div>}
           </div>
 
-          <div className="panel-section">
-            <div className="section-label">分组权限</div>
-            {!canManagePermissions && (
-              <div style={{ fontSize: 12, color: 'var(--muted)', marginBottom: 8 }}>
-                此文档由 {ownerName} 上传，只有上传人或站长可以设置分享范围（你可以查看，但不能修改）。
+          {canManagePermissions ? (
+            <>
+              <div className="panel-section">
+                <div className="section-label">分组权限</div>
+                {groups.map((g) => (
+                  <div key={g.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
+                    <span className="name">{g.name}</span>
+                    <select value={groupLevels[g.id] || 'none'} onChange={(e) => setGroupLevel(g.id, e.target.value)}>
+                      <option value="none">不可见</option>
+                      <option value="view">仅查看</option>
+                      <option value="download">可下载</option>
+                    </select>
+                  </div>
+                ))}
               </div>
-            )}
-            {groups.map((g) => (
-              <div key={g.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
-                <span className="name">{g.name}</span>
-                <select disabled={!canManagePermissions} value={groupLevels[g.id] || 'none'} onChange={(e) => setGroupLevel(g.id, e.target.value)}>
-                  <option value="none">不可见</option>
-                  <option value="view">仅查看</option>
-                  <option value="download">可下载</option>
-                </select>
-              </div>
-            ))}
-          </div>
 
-          <div className="panel-section">
-            <div className="section-label">个人覆盖</div>
-            {users.map((u) => (
-              <div key={u.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
-                <span className="name">{u.display_name}</span>
-                <select disabled={!canManagePermissions} value={userOverrides[u.id] || 'none'} onChange={(e) => setUserOverride(u.id, e.target.value)}>
-                  <option value="none">无覆盖（跟随分组）</option>
-                  <option value="view">仅查看</option>
-                  <option value="download">可下载</option>
-                  <option value="deny">禁止查看</option>
-                </select>
+              <div className="panel-section">
+                <div className="section-label">个人覆盖</div>
+                {users.map((u) => (
+                  <div key={u.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
+                    <span className="name">{u.display_name}</span>
+                    <select value={userOverrides[u.id] || 'none'} onChange={(e) => setUserOverride(u.id, e.target.value)}>
+                      <option value="none">无覆盖（跟随分组）</option>
+                      <option value="view">仅查看</option>
+                      <option value="download">可下载</option>
+                      <option value="deny">禁止查看</option>
+                    </select>
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          ) : (
+            <div className="panel-section">
+              <div className="section-label">分享范围</div>
+              <div style={{ fontSize: 13, color: 'var(--muted)' }}>
+                此文档由 {ownerName} 上传，只有上传人或站长可以查看和设置分享范围。
+              </div>
+            </div>
+          )}
 
           <div className="panel-section">
             <div className="section-label">所属文件夹</div>

@@ -22,7 +22,7 @@ export default function DocumentDetail() {
   useEffect(() => {
     (async () => {
       const { data: docData, error: docError } = await supabase
-        .from('documents').select('*').eq('id', id).single();
+        .from('documents').select('*, profiles(display_name)').eq('id', id).single();
       if (docError) { setError('无法访问该文档（可能已被移除权限）'); return; }
       setDoc(docData);
 
@@ -63,10 +63,15 @@ export default function DocumentDetail() {
       <Link to="/" style={{ fontSize: 13 }}>← 返回文档列表</Link>
       <div className="card" style={{ marginTop: 12 }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'baseline' }}>
-          <h2 style={{ margin: 0 }}>
-            {doc.title}
-            {doc.current_version > 1 && <span className="pill" style={{ marginLeft: 8 }}>v{doc.current_version}</span>}
-          </h2>
+          <div>
+            <h2 style={{ margin: 0 }}>
+              {doc.title}
+              {doc.current_version > 1 && <span className="pill" style={{ marginLeft: 8 }}>v{doc.current_version}</span>}
+            </h2>
+            <div style={{ fontSize: 12, color: 'var(--muted)', marginTop: 4 }}>
+              上传人：{doc.profiles?.display_name || '未知用户'}
+            </div>
+          </div>
           {canDownload ? (
             <button className="btn btn-primary" onClick={handleDownload}>下载</button>
           ) : (

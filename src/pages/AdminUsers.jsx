@@ -149,28 +149,27 @@ export default function AdminUsers() {
           </div>
 
           <div className="section-label">
-            个人覆盖（在分组权限基础上，针对单份文档单独调整；deny 优先级最高。只有文档的上传人或站长能改对应那一行）
+            个人覆盖（在分组权限基础上，针对单份文档单独调整；deny 优先级最高。只显示你上传的文档，其他人上传的文档看不到也改不了）
           </div>
           {overrideError && <div className="error-text" style={{ marginBottom: 8 }}>{overrideError}</div>}
           <div className="card" style={{ padding: 0 }}>
-            {docs.map((doc) => {
-              const canEdit = doc.owner_id === currentUser?.id || isOwner;
-              return (
-                <div key={doc.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
-                  <span className="name">{doc.title}</span>
-                  <select
-                    disabled={!canEdit}
-                    value={overrides[doc.id] || 'none'}
-                    onChange={(e) => setOverride(doc.id, e.target.value)}
-                  >
-                    <option value="none">无覆盖（跟随分组）</option>
-                    <option value="view">仅查看</option>
-                    <option value="download">可下载</option>
-                    <option value="deny">禁止查看</option>
-                  </select>
-                </div>
-              );
-            })}
+            {docs.filter((doc) => doc.owner_id === currentUser?.id || isOwner).map((doc) => (
+              <div key={doc.id} className="doc-row" style={{ gridTemplateColumns: '1fr 160px' }}>
+                <span className="name">{doc.title}</span>
+                <select
+                  value={overrides[doc.id] || 'none'}
+                  onChange={(e) => setOverride(doc.id, e.target.value)}
+                >
+                  <option value="none">无覆盖（跟随分组）</option>
+                  <option value="view">仅查看</option>
+                  <option value="download">可下载</option>
+                  <option value="deny">禁止查看</option>
+                </select>
+              </div>
+            ))}
+            {docs.filter((doc) => doc.owner_id === currentUser?.id || isOwner).length === 0 && (
+              <div style={{ padding: 12, fontSize: 13, color: 'var(--muted)' }}>你还没有上传任何文档。</div>
+            )}
           </div>
         </div>
       )}

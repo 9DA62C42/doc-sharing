@@ -281,12 +281,18 @@ create policy "documents_delete_owner_or_admin" on public.documents
     or exists (select 1 from profiles where id = auth.uid() and is_admin)
   );
 
--- document_group_access / document_user_access：任何管理员都能查看（审计用），
--- 但只有该文档的上传人（owner_id）或站长能设置分享范围，避免管理员之间越权改别人上传的文档。
-create policy "dga_select_admin" on public.document_group_access
-  for select using (exists (select 1 from profiles where id = auth.uid() and is_admin));
-create policy "dua_select_admin" on public.document_user_access
-  for select using (exists (select 1 from profiles where id = auth.uid() and is_admin));
+-- document_group_access / document_user_access：只有该文档的上传人（owner_id）或站长
+-- 能查看和设置分享范围，非上传人的管理员完全看不到（避免越权改别人上传的文档）。
+create policy "dga_select_owner_or_site_owner" on public.document_group_access
+  for select using (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
+create policy "dua_select_owner_or_site_owner" on public.document_user_access
+  for select using (
+    exists (select 1 from documents d where d.id = document_id and d.owner_id = auth.uid())
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+  );
 
 create policy "dga_insert_owner_or_site_owner" on public.document_group_access
   for insert with check (
@@ -345,11 +351,13 @@ create policy "fua_write_owner_or_site_owner" on public.folder_user_access
     or exists (select 1 from profiles where id = auth.uid() and is_owner)
   );
 
--- access_logs：管理员看全部；普通用户只能看自己触发的记录；任何登录用户都能写入自己的日志
-create policy "logs_select_own_or_admin" on public.access_logs
+-- access_logs：站长看全部；普通管理员只能看自己的操作记录，以及涉及自己上传文档的记录；
+-- 任何登录用户都能写入自己的日志。
+create policy "logs_select_scoped" on public.access_logs
   for select using (
     user_id = auth.uid()
-    or exists (select 1 from profiles where id = auth.uid() and is_admin)
+    or exists (select 1 from profiles where id = auth.uid() and is_owner)
+    or exists (select 1 from documents d where d.id = access_logs.document_id and d.owner_id = auth.uid())
   );
 create policy "logs_insert_own" on public.access_logs
   for insert with check (user_id = auth.uid());

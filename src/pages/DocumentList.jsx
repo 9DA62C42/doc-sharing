@@ -23,7 +23,7 @@ export default function DocumentList() {
   async function load() {
     // RLS 已经在数据库层过滤好了：这里查出来的就是当前用户能看到的全部文档
     const [{ data, error }, { data: f }] = await Promise.all([
-      supabase.from('documents').select('*').order('updated_at', { ascending: false }),
+      supabase.from('documents').select('*, profiles(display_name)').order('updated_at', { ascending: false }),
       supabase.from('folders').select('id, name'),
     ]);
     if (error) setError(error.message);
@@ -144,15 +144,15 @@ export default function DocumentList() {
         <div className="empty">没有匹配的文档。</div>
       ) : (
         <div className="card" style={{ padding: 0 }}>
-          <div className="doc-row" style={{ color: 'var(--muted)', fontSize: 12, borderBottom: '1px solid var(--border)' }}>
-            <span>名称</span><span>类型</span><span>大小</span><span></span>
+          <div className="doc-row" style={{ gridTemplateColumns: '1fr 120px 80px 90px', color: 'var(--muted)', fontSize: 12, borderBottom: '1px solid var(--border)' }}>
+            <span>名称</span><span>上传人</span><span>类型</span><span>大小</span>
           </div>
           {filteredDocs.map((doc) => (
-            <div className="doc-row" key={doc.id}>
+            <div className="doc-row" key={doc.id} style={{ gridTemplateColumns: '1fr 120px 80px 90px' }}>
               <Link className="name" to={`/documents/${doc.id}`}>{doc.title}</Link>
+              <span className="meta">{doc.profiles?.display_name || '—'}</span>
               <span className="meta">{doc.file_type}</span>
               <span className="meta">{formatSize(doc.size_bytes)}</span>
-              <span></span>
             </div>
           ))}
         </div>
